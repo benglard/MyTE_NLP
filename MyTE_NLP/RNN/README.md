@@ -34,12 +34,12 @@ end
 
 MyTE_RNN takes rnn implementation inspiration from these sources:
 
-https://github.com/wojzaremba/lstm
-https://github.com/oxford-cs-ml-2015
-https://github.com/karpathy/char-rnn
-https://github.com/Element-Research/rnn
+<p>https://github.com/wojzaremba/lstm</p>
+<p>https://github.com/oxford-cs-ml-2015</p>
+<p>https://github.com/karpathy/char-rnn</p>
+<p>https://github.com/Element-Research/rnn</p>
 
-and it's structure from this source:
+and it's inspiration on its structure from this source:
 
 https://github.com/koraykv/unsup
 

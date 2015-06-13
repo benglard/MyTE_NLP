@@ -5,7 +5,7 @@ The NLP library built on torch7 used at MyTE. It includes sublibraries for build
 ## Installation
 
 ```
-git clone git://github.com/benglard/MyTE_NLP
+git clone git@github.com:benglard/MyTE_NLP.git
 cd MyTE_NLP
 luarocks make
 ```

@@ -1,6 +1,6 @@
 # MyTE_RL
 
-MyTE_RL is a library built to ease the development and use of reinforcement learning architechtures on torch7 systems. MyTE_RL is built on top of nn, and MyTE_RNN, allowing for the building of powerful models.
+MyTE_RL is a library built to ease the development and use of reinforcement learning architechtures on torch7 systems. MyTE_RL is built on top of nn and MyTE_RNN, allowing for the building of powerful models.
 
 # Example Usage
 
