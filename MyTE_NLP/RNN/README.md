@@ -39,7 +39,6 @@ MyTE_RNN takes rnn implementation inspiration from these sources:
 <p>https://github.com/karpathy/char-rnn</p>
 <p>https://github.com/Element-Research/rnn</p>
 
-and it's inspiration on its structure from this source:
+and inspiration on its structure from this source:
 
 https://github.com/koraykv/unsup
-
