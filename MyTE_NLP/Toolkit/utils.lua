@@ -114,6 +114,28 @@ table.contains = function(t, elem)
    return table.index(t, elem) ~= -1
 end
 
+table.testtrainsplit = function(t, n)
+   --[[
+      REQUIRES:
+         t -> a lua table
+         n -> index to split at
+      EFFECTS:
+         Splits a lua table of data into
+         two tables, one for training data
+         and one for testing data
+   ]]
+
+   local rv1 = {}
+   local rv2 = {}
+   for i = 1, n do
+      table.insert(rv1, t[i])
+   end
+   for i = n + 1, #t do
+      table.insert(rv2, t[i])
+   end
+   return rv1, rv2
+end
+
 torch.cossim = function(v1, v2)
    --[[
       REQUIRES:

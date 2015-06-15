@@ -200,7 +200,7 @@ function TableProbDist:__init(samples, log, normalize)
    local sum = 0.0
    
    for k, v in pairs(samples) do
-      if log then v = math.log(v, 2) end
+      --if log then v = math.log(v, 2) end
       self.samples[k] = v
       sum = sum + v
       self.N = self.N + 1

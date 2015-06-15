@@ -136,14 +136,12 @@ function NaiveBayesClassifier:classify(input)
          local delta = 0
          if probs ~= nil then
             delta = probs:logprob(fval)
-         else
-            delta = 1e10 -- close enough to inf
          end
          logprobs[label] = logprobs[label] + delta
       end
    end
 
-   return nlp.TableProbDist(logprobs, false, true)
+   return nlp.TableProbDist(logprobs, true, true)
 end
 
 -- Useful metatable functions
