@@ -15,7 +15,8 @@ dependencies = {
    'nn',
    'nngraph',
    'optim',
-   'xlua'
+   'xlua',
+   'tds'
 }
 
 build = {

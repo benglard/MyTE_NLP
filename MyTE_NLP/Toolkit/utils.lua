@@ -1,3 +1,5 @@
+local tds = require 'tds'
+
 table.reverse = function(t, inplace)
    --[[
       REQUIRES:
@@ -194,13 +196,15 @@ torch.shuffle = function(data, inplace)
       'torch.shuffle requires input of type table, tds.hash,  or tensor')
 
    local size, rv
-
    if isTensor then
       size = data:size(1)
       rv = torch.Tensor():resizeAs(data)
-   else
+   elseif t == 'table' then
       size = #data
       rv = {}
+   elseif t == 'tds_hash' then
+      size = #data
+      rv = tds.hash()
    end
 
    local shuffled = torch.randperm(size, 'torch.LongTensor')
