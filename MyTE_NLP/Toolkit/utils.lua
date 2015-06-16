@@ -188,11 +188,12 @@ torch.shuffle = function(data, inplace)
 
    if inplace == nil then inplace = true end
 
-   assert(type(data) == 'table' or data:isTensor(),
-      'torch.shuffle requires input of type table  or tensor')
+   local isTensor = data.isTensor ~= nil
+   local t = torch.type(data)
+   assert(t == 'table' or t == 'tds_hash' or isTensor,
+      'torch.shuffle requires input of type table, tds.hash,  or tensor')
 
    local size, rv
-   local isTensor = data.isTensor ~= nil
 
    if isTensor then
       size = data:size(1)
