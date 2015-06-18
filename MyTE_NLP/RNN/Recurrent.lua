@@ -39,7 +39,7 @@ function Recurrent:updateOutput(input)
 
    if type(input) == 'table' then
       self.input = input
-   elseif input:isTensor() then
+   else
       self.input = {input, self.prev_h}
    end
 

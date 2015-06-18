@@ -62,7 +62,7 @@ function LSTM:updateOutput(input)
 
    if type(input) == 'table' then
       self.input = input
-   elseif input:isTensor() then
+   else
       self.input = {input, self.prev_c, self.prev_h}
    end
 
@@ -88,7 +88,7 @@ function LSTM:updateGradInput(input, gradOutput)
    local gradOutputTable
    if type(gradOutput) == 'table' then
       gradOutputTable = gradOutput
-   elseif gradOutput:isTensor() then
+   else
       gradOutputTable = {gradOutput, self.dprev_c, self.dprev_h}
    end
 
