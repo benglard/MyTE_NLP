@@ -23,11 +23,20 @@ function Reinforce:__init(env, options)
    self.bhidden   = self.options.bhidden   or 100   -- # baseline hidden units
    self.variance  = self.options.variance  or 0.02  -- for stochastic gaussian policy
    self.gradclip  = self.options.gradclip  or 0.1   -- gradient clipping level
+   self.momentum  = self.options.momentum  or 0.9   -- network momentum (only sgd)
    self.batchsize = self.options.batchsize or 100   -- train every n instances
    self.history   = self.options.history   or 80    -- use this many past instances to compute actual rewards
    self.rectifier = self.options.rectifier or nn.Tanh
    self.network   = self.options.network   or self:buildNetwork()
    self.baseline  = self.options.baseline  or self:buildBaseline()
+   self.optim     = self.options.optim     or 'sgd'
+
+   self.updates = { self.lr }
+   if self.optim == 'sgd' then
+      table.insert(self.updates, self.momentum)
+   else
+      table.insert(self.updates, self.gradclip)
+   end
    
    self.states = {}
    self.rewards = {}
@@ -164,8 +173,8 @@ function Reinforce:learn(reward)
       end
 
       -- update network
-      self:update(self.network, self.lr)
-      self:update(self.baseline, self.baselr)
+      self:update(self.network, self.optim, self.updates)
+      self:update(self.baseline, self.optim, self.updates)
       self.loss = baseMSE / age
 
       -- reset

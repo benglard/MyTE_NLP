@@ -41,6 +41,9 @@ Module.backward = function(self, input, gradOutput, scale)
    clone:updateGradInput(input, gradOutput)
    clone:accGradParameters(input, gradOutput, scale)
    self.step = self.step + 1
+   if self.step > #self.clones then
+      self.step = 1
+   end
    return self.gradInput
 end
 
@@ -78,6 +81,9 @@ Criterion.backward = function(self, input, target)
 
    local clone = self.clones[self.step] or self
    self.step = self.step + 1
+   if self.step > #self.clones then
+      self.step = 1
+   end
    return clone:updateGradInput(input, target)
 end
 
@@ -110,6 +116,17 @@ Sequential.backward = function(self, input, gradOutput, scale)
    currentGradOutput = currentModule:backward(input, currentGradOutput, scale)
    self.gradInput = currentGradOutput
    self.step = self.step + 1
+   if self.step > #self.clones then
+      self.step = 1
+   end
+
+   for i = 1, nmods do
+      local mod = clone.modules[i]
+      mod.step = mod.step + 1
+      if mod.step > #self.clones then
+         mod.step = 1
+      end
+   end
    return currentGradOutput
 end
 

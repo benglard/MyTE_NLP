@@ -10,7 +10,7 @@ torch.manualSeed(opt.seed)
 
 local env = { nstates = 2, nactions = 2 }
 local opts = { rnn = opt.rnn, momentum = 0 }
-local rnnops = { debug = true, name = 'rnn', args = { 2, 100, 1, true } }
+local rnnops = { debug = true, name = opt.rnn, args = { 2, 100, 1, true } }
 
 local agent = rl[opt.agent](env, opts, rnnops)
 local i = 1
