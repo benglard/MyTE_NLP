@@ -124,7 +124,8 @@ function Module:updateGradInput(input, gradOutput)
          input -> a torch Tensor
          gradOutput -> a torch Tensor
       EFFECTS:
-         Calculates the gradient with respect to the input
+         Calculates the gradient with respect to the
+         module's input
    ]]
 
    local mod = self.clones[self.step] or self.layer or self
@@ -139,7 +140,7 @@ function Module:accGradParameters(input, gradOutput, scale)
          scale -> a number
       EFFECTS:
          Calculates the gradient with respect to the
-         modules' parameters
+         module's parameters
    ]]
 
    local mod = self.clones[self.step] or self.layer or self

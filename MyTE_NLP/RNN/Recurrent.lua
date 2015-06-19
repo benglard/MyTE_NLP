@@ -56,14 +56,30 @@ function Recurrent:updateGradInput(input, gradOutput)
          input -> a torch Tensor
          gradOutput -> a torch Tensor, output of a previous layer
       EFFECTS:
-         Backpropogates input and gradOutput through 
-         either the network or it's clone at the 
+         Calculates the gradient with respect to the
+         input to the layer or it's clone at the 
          correct time-step
    ]]
 
-   local layer = self.clones[self.step] or self.layer
+  local layer = self.clones[self.step] or self.layer
    local gix, gih = unpack(layer:updateGradInput(self.input, gradOutput))
    self.gradInput:resizeAs(gix):copy(gix)
    self.dprev_h:resizeAs(gih):copy(gih)
    return self.gradInput
+end
+
+function Recurrent:accGradParameters(input, gradOutput, scale)
+   --[[
+      REQUIRES:
+         input -> a torch Tensor or table
+         gradOutput -> a torch Tensor, output of a previous layer
+         scale -> a number
+      EFFECTS:
+         Calculates the gradient with respect to the
+         parameters of the layer or it's clone at the 
+         correct time-step
+   ]]
+
+   local layer = self.clones[self.step] or self.layer
+   layer:accGradParameters(self.input, gradOutput)
 end

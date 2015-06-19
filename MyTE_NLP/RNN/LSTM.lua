@@ -77,11 +77,11 @@ end
 function LSTM:updateGradInput(input, gradOutput)
    --[[
       REQUIRES:
-         input -> a torch Tensor or table
+         input -> a torch Tensor
          gradOutput -> a torch Tensor, output of a previous layer
       EFFECTS:
-         Backpropogates input and gradOutput through 
-         either the network or it's clone at the 
+         Calculates the gradient with respect to the
+         input to the layer or it's clone at the 
          correct time-step
    ]]
 
@@ -98,4 +98,27 @@ function LSTM:updateGradInput(input, gradOutput)
    self.dprev_c:resizeAs(gic):copy(gic)
    self.dprev_h:resizeAs(gih):copy(gih)
    return self.gradInput
+end
+
+function LSTM:accGradParameters(input, gradOutput, scale)
+   --[[
+      REQUIRES:
+         input -> a torch Tensor or table
+         gradOutput -> a torch Tensor, output of a previous layer
+         scale -> a number
+      EFFECTS:
+         Calculates the gradient with respect to the
+         parameters of the layer or it's clone at the 
+         correct time-step
+   ]]
+
+   local gradOutputTable
+   if type(gradOutput) == 'table' then
+      gradOutputTable = gradOutput
+   else
+      gradOutputTable = {gradOutput, self.dprev_c, self.dprev_h}
+   end
+
+   local layer = self.clones[self.step] or self.layer
+   layer:accGradParameters(self.input, gradOutputTable)
 end

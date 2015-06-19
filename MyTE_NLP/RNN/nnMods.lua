@@ -44,7 +44,7 @@ Module.backward = function(self, input, gradOutput, scale)
    if self.step > #self.clones then
       self.step = 1
    end
-   return self.gradInput
+   return clone.gradInput
 end
 
 -------- Criterion
