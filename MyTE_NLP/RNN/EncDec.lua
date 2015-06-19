@@ -50,7 +50,6 @@ function EncDec:updateOutput(input)
 
    local stop = input == self.stop
    if stop and (not self.estop or es == self.seqSize) then
-      print 'enc stop'
       dec.modules[1].prev_h[1]:copy(self.prev)
       self.estop = true
       return output
@@ -66,8 +65,7 @@ function EncDec:updateOutput(input)
       self.prev:resizeAs(output):typeAs(output):copy(output)
       return output
    elseif ds < self.seqSize then
-      local output = dec:forward(input)
-      return output
+      return dec:forward(input)
    end
 end
 
