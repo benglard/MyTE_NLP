@@ -61,7 +61,7 @@ function Recurrent:updateGradInput(input, gradOutput)
          correct time-step
    ]]
 
-  local layer = self.clones[self.step] or self.layer
+   local layer = self.clones[self.step] or self.layer
    local gix, gih = unpack(layer:updateGradInput(self.input, gradOutput))
    self.gradInput:resizeAs(gix):copy(gix)
    self.dprev_h:resizeAs(gih):copy(gih)
