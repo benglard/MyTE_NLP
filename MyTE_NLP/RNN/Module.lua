@@ -101,7 +101,7 @@ function Module:reset(stdv)
          Resets a module or one of its clones
    ]]
 
-   local mod = self.clones[self.step] or self
+   local mod = self.clones[self.step] or self.layer or self
    mod:reset(stdv)
 end
 
@@ -114,8 +114,36 @@ function Module:updateOutput(input)
          or it's clone at the correct time-step
    ]]
 
-   local mod = self.clones[self.step] or self
+   local mod = self.clones[self.step] or self.layer or self
    return mod:updateOutput(input)
+end
+
+function Module:updateGradInput(input, gradOutput)
+   --[[
+      REQUIRES:
+         input -> a torch Tensor
+         gradOutput -> a torch Tensor
+      EFFECTS:
+         Calculates the gradient with respect to the input
+   ]]
+
+   local mod = self.clones[self.step] or self.layer or self
+   return mod:updateGradInput(input, gradOutput)
+end
+
+function Module:accGradParameters(input, gradOutput, scale)
+   --[[
+      REQUIRES:
+         input -> a torch Tensor
+         gradOutput -> a torch Tensor
+         scale -> a number
+      EFFECTS:
+         Calculates the gradient with respect to the
+         modules' parameters
+   ]]
+
+   local mod = self.clones[self.step] or self.layer or self
+   return mod:accGradParameters(input, gradOutput, scale)
 end
 
 function Module:clone(T)

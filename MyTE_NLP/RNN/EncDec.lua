@@ -11,7 +11,6 @@ function EncDec:__init(encoder, decoder)
          encoder-decoder models.
    ]]
 
-   parent.__init(self)
    self.encoder = encoder
    self.decoder = decoder
 
