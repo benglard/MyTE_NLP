@@ -1,12 +1,14 @@
 local EncDec, parent = torch.class('rnn.EncDec', 'rnn.Module')
 
-function EncDec:__init(encoder, decoder, inputSize, seqSize, stop)
+function EncDec:__init(encoder, decoder, stop, input, hidden, batch, seq)
    --[[
       REQUIRES:
          encoder -> an instance of nn.Module or nngraph.gModule
          decoder -> an instance of nn.Module or nngraph.gModule
-         inputSize -> size of input sequence
-         seqSize -> size of input sequence
+         input -> a number
+         hidden -> a number
+         batch -> a number or nil
+         seq -> a number or nil
          stop -> stop symbol
       EFFECTS:
          Creates an instance of the rnn.EncDec class for use
@@ -14,24 +16,16 @@ function EncDec:__init(encoder, decoder, inputSize, seqSize, stop)
          encoder-decoder models.
    ]]
 
-   self.encoder = encoder:clone(seqSize)
-   self.decoder = decoder:clone(seqSize)
+   parent.__init(self, input, hidden, batch, seq)
+   self.encoder = encoder:clone(self.seqSize)
+   self.decoder = decoder:clone(self.seqSize)
 
    self.layer = nn.Sequential()
    self.layer:add(encoder)
    self.layer:add(decoder)
 
-   self.seqSize = seqSize
    self.stop = stop
-   self.estop = false
-
-   self.step = {
-      encoder = 1,
-      decoder = 1
-   }
-
-   self.prev = torch.Tensor()
-   self.inputs = torch.Tensor(seqSize, inputSize)
+   self:restart()
 end
 
 function EncDec:updateOutput(input)
@@ -50,9 +44,13 @@ function EncDec:updateOutput(input)
 
    local stop = input == self.stop
    if stop and (not self.estop or es == self.seqSize) then
+      input = torch.Tensor(self.batchSize, self.inputSize):typeAs(self.prev)
+      for i = 1, self.batchSize do
+         input[i][self.inputSize] = 1.0
+      end
       dec.modules[1].prev_h[1]:copy(self.prev)
       self.estop = true
-      return output
+      return enc:forward(input)
    elseif stop and (self.estop or ds == self.seqSize) then
       self.estop = false
       return nil
@@ -90,8 +88,54 @@ function EncDec:backward(input, gradOutput, scale)
 
    currentGradOutput = dec:backward(input, currentGradOutput, scale)
    dec.gradInput = currentGradOutput
-   self.gradInput = enc:backward(encinput, currentGradOutput, scale)
+   if ds == 1 then
+      currentGradOutput = enc:backward(encinput, currentGradOutput, scale)
+   end
+   self.gradInput = currentGradOutput
    self.step.decoder = ds + 1
+end
+
+function EncDec:decode(input)
+   --[[
+      REQUIRES:
+         input -> a torch Tensor
+      EFFECTS:
+         Feeds input through the decoder
+         or it's clone at the correct time-step.
+         But returns the output of only
+         the recurrent layer (so it can be fed back)
+   ]]
+
+   self:updateOutput(input)
+   return self:state()
+end
+
+function EncDec:state()
+   --[[
+      EFFECTS:
+         Returns hidden state of first layer
+         of decoder
+   ]]
+
+   local ds = self.step.decoder
+   return self.decoder.clones[ds].modules[1].output
+end
+
+function EncDec:restart()
+   --[[
+      EFFECTS:
+         Reloads the model to initial
+         values
+   ]]
+
+   self.estop = false
+   self.step = {
+      encoder = 1,
+      decoder = 1
+   }
+
+   self.prev = torch.Tensor()
+   self.inputs = torch.zeros(self.seqSize, self.batchSize, self.inputSize)
 end
 
 function EncDec:__tostring__()
@@ -103,3 +147,5 @@ function EncDec:__tostring__()
 
    return tostring(self.layer)
 end
+
+EncDec.encode = EncDec.updateOutput

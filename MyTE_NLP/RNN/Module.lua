@@ -20,7 +20,10 @@ function Module:__init(inputSize, hiddenSize, batchSize, seqLength)
    self.hiddenSize = hiddenSize
    self.batchSize = batchSize or 1
    self.seqSize = seqLength or 1
-   self.input = {}
+   self.input = {
+      torch.zeros(self.batchSize, self.inputSize),
+      torch.zeros(self.batchSize, self.hiddenSize)
+   }
 end
 
 function Module:parameters()
