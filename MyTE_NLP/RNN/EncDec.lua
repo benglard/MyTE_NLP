@@ -33,8 +33,8 @@ function EncDec:updateOutput(input)
       REQUIRES:
          input -> a torch Tensor
       EFFECTS:
-         Feeds input through either the network
-         or it's clone at the correct time-step
+         Feeds input through either the encoder
+         or decoder at the correct time-step
    ]]
 
    local es = self.step.encoder
@@ -48,6 +48,7 @@ function EncDec:updateOutput(input)
       for i = 1, self.batchSize do
          input[i][self.inputSize] = 1.0
       end
+      self.inputs[es]:copy(input)
       dec.modules[1].prev_h[1]:copy(self.prev)
       self.estop = true
       return enc:forward(input)
@@ -57,7 +58,6 @@ function EncDec:updateOutput(input)
    elseif es < self.seqSize and (not self.estop) then
       self.inputs = self.inputs:typeAs(input)
       self.inputs[es]:copy(input)
-
       local output = enc:forward(input)
       self.step.encoder = es + 1
       self.prev:resizeAs(output):typeAs(output):copy(output)
@@ -75,22 +75,24 @@ function EncDec:backward(input, gradOutput, scale)
          scale -> a number or nil
       EFFECTS:
          Backpropogates input and gradOutput through 
-         either the sequential or it's clone at the 
-         correct time-step
+         the decoder and encoder at the correct time step
    ]]
 
    scale = scale or 1
    local currentGradOutput = gradOutput
    local ds = self.step.decoder
-   local encinput = self.inputs[ds]
-   local enc = self.encoder.clones[ds]
    local dec = self.decoder.clones[ds]
 
    currentGradOutput = dec:backward(input, currentGradOutput, scale)
    dec.gradInput = currentGradOutput
-   if ds == 1 then
+
+   local es = self.step.encoder - (ds - 1)
+   if es > 0 then
+      local encinput = self.inputs[es]
+      local enc = self.encoder.clones[es]
       currentGradOutput = enc:backward(encinput, currentGradOutput, scale)
    end
+
    self.gradInput = currentGradOutput
    self.step.decoder = ds + 1
 end
@@ -117,8 +119,9 @@ function EncDec:state()
          of decoder
    ]]
 
-   local ds = self.step.decoder
-   return self.decoder.clones[ds].modules[1].output
+   local ds = self.step.decoder - 1
+   if ds == -1 then ds = 1 end
+   return self.decoder.clones[ds].modules[1].output:clone()
 end
 
 function EncDec:restart()
