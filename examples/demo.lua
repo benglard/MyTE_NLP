@@ -22,9 +22,12 @@ for i = 1, steps do
    local err = criterion:forward(output, label)
    local gradOutput = criterion:backward(output, label)
    model:backward(x, gradOutput)
-
    print(output)
 end
 
 local ps, gs = model:getParameters()
 print(#ps)
+
+model:float()
+local fx = torch.rand(batchSize, 200):float()
+print(model:forward(fx))
