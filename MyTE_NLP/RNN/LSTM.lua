@@ -1,8 +1,9 @@
 local LSTM, parent = torch.class('rnn.LSTM', 'rnn.Module')
 
-function LSTM:__init(hidden, batch, annotate)
+function LSTM:__init(input, hidden, batch, annotate)
    --[[
       REQUIRES:
+         input -> a number, size of input
          hidden -> a number, of hidden units to use
          batch -> a number, batch size
          annotate -> a boolean, if true, annotates the
@@ -13,7 +14,7 @@ function LSTM:__init(hidden, batch, annotate)
          architectures with LSTM units. 
    ]]
 
-   parent.__init(self, hidden, hidden, batch)
+   parent.__init(self, input, hidden, batch)
 
    self.prev_c = torch.zeros(self.batchSize, self.hiddenSize)
    self.dprev_c = torch.zeros(self.batchSize, self.hiddenSize)
@@ -25,8 +26,9 @@ function LSTM:__init(hidden, batch, annotate)
    local prev_h = nn.Identity()()
 
    -- Calculate all four gates in one go
-   local i2h = nn.Linear(self.hiddenSize, 4 * self.hiddenSize)(x)
-   local h2h = nn.Linear(self.hiddenSize, 4 * self.hiddenSize)(prev_h)
+   local input = nn.Linear(self.inputSize, self.hiddenSize)(x)
+   local i2h   = nn.Linear(self.hiddenSize, 4 * self.hiddenSize)(input)
+   local h2h   = nn.Linear(self.hiddenSize, 4 * self.hiddenSize)(prev_h)
    local gates = nn.CAddTable(){ i2h, h2h }
 
    -- Reshape to (batch_size, n_gates, hid_size)

@@ -12,8 +12,8 @@ model:add(rnn.Recurrent(n_input, n_hidden, batch_size, true):apply('rnn', true))
 model:add(nn.Linear(n_hidden, n_output))
 local criterion = nn.MSECriterion()
 
-model:clone(seq_length)
-criterion:clone(seq_length)
+--model:clone(seq_length)
+--criterion:clone(seq_length)
 
 local data = torch.linspace(0, 20*math.pi, 1000):sin():view(-1, 1)
 local start_idx = torch.Tensor(batch_size):uniform():mul(data:size(1) - seq_length):ceil():long()

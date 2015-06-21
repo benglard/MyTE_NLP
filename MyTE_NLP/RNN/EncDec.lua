@@ -63,6 +63,9 @@ function EncDec:updateOutput(input)
       self.prev:resizeAs(output):typeAs(output):copy(output)
       return output
    elseif ds < self.seqSize then
+      if not self.train then
+         self.step.decoder = ds + 1
+      end
       return dec:forward(input)
    end
 end
@@ -79,18 +82,18 @@ function EncDec:backward(input, gradOutput, scale)
    ]]
 
    scale = scale or 1
-   local currentGradOutput = gradOutput
    local ds = self.step.decoder
    local dec = self.decoder.clones[ds]
-
-   currentGradOutput = dec:backward(input, currentGradOutput, scale)
+   local currentGradOutput = dec:backward(input, gradOutput, scale)
    dec.gradInput = currentGradOutput
 
-   local es = self.step.encoder - (ds - 1)
-   if es > 0 then
-      local encinput = self.inputs[es]
-      local enc = self.encoder.clones[es]
-      currentGradOutput = enc:backward(encinput, currentGradOutput, scale)
+   if ds == 1 then
+      local es = self.step.encoder
+      for i = es, 1, -1 do
+         local encinput = self.inputs[i]
+         local enc = self.encoder.clones[i]
+         enc:backward(encinput, currentGradOutput, scale)
+      end
    end
 
    self.gradInput = currentGradOutput
@@ -120,7 +123,6 @@ function EncDec:state()
    ]]
 
    local ds = self.step.decoder - 1
-   if ds == -1 then ds = 1 end
    return self.decoder.clones[ds].modules[1].output:clone()
 end
 

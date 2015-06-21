@@ -3,7 +3,7 @@ require '../MyTE_NLP'
 alphabetSize = 71
 hiddensize = 100
 batchSize = 1
-seqSize = 203
+seqSize = 20
 
 local encoder = nn.Sequential()
 encoder:add(rnn.Recurrent(alphabetSize, hiddensize, batchSize, true):apply('enc', true))
@@ -16,18 +16,20 @@ local model = rnn.EncDec(encoder, decoder, 'S', alphabetSize, hiddensize, batchS
 local criterion = nn.ClassNLLCriterion():clone(seqSize)
 print(model, criterion)
 
+model:training()
 for n = 1, 10 do
    local i = torch.zeros(batchSize, alphabetSize)
    model:forward(i)
    print('#' .. n .. ' in')
 end
-local o = model:forward('S')
+local o = model:forward('S'):clone()
 for n = 1, 15 do
    local t = torch.ones(batchSize)
-   o = model:decode(o)
-   local e = criterion:forward(o, t)
-   local d = criterion:backward(o, t)
+   local lsm = model:forward(o):clone()
+   local e = criterion:forward(lsm, t)
+   local d = criterion:backward(lsm, t)
    model:backward(o, d)
+   o = model:state()
    print('#' .. n .. ' out')
 end
 --model:forward('S')

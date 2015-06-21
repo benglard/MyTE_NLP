@@ -163,3 +163,8 @@ function Module:clone(T)
    self.clones = parent.clone(mod, T).clones
    return self
 end
+
+function Module:__tostring__()
+   local dims = '(' .. self.inputSize .. ' -> ' .. self.hiddenSize .. ')'
+   return torch.type(self) .. dims
+end

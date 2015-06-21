@@ -5,8 +5,7 @@ local batchSize = 2
 local steps = 5
 
 local model = nn.Sequential()
-model:add(nn.Linear(200, 100))
-model:add(rnn.LSTM(100, batchSize, true):apply('rnn', true))
+model:add(rnn.LSTM(200, 100, batchSize, true):apply('rnn', true))
 model:add(nn.Linear(100, 10))
 model:add(nn.LogSoftMax())
 local criterion = nn.ClassNLLCriterion()
