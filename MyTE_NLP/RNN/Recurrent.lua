@@ -16,7 +16,6 @@ function Recurrent:__init(input, hidden, batch, annotate)
 
    parent.__init(self, input, hidden, batch)
    self.prev_h = torch.zeros(self.batchSize, self.hiddenSize)
-   self.dprev_h = torch.zeros(self.batchSize, self.hiddenSize)
 
    local x      = nn.Identity()()
    local prev_h = nn.Identity()()
@@ -62,9 +61,8 @@ function Recurrent:updateGradInput(input, gradOutput)
    ]]
 
    local layer = self.clones[self.step] or self.layer
-   local gix, gih = unpack(layer:updateGradInput(self.input, gradOutput))
+   local gix, _ = unpack(layer:updateGradInput(self.input, gradOutput))
    self.gradInput:resizeAs(gix):copy(gix)
-   self.dprev_h:resizeAs(gih):copy(gih)
    return self.gradInput
 end
 

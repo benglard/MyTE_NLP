@@ -16,10 +16,9 @@ function LSTM:__init(input, hidden, batch, annotate)
 
    parent.__init(self, input, hidden, batch)
 
-   self.prev_c = torch.zeros(self.batchSize, self.hiddenSize)
+   self.prev_c  = torch.zeros(self.batchSize, self.hiddenSize)
    self.dprev_c = torch.zeros(self.batchSize, self.hiddenSize)
-   self.prev_h = torch.zeros(self.batchSize, self.hiddenSize)
-   self.dprev_h = torch.zeros(self.batchSize, self.hiddenSize)
+   self.prev_h  = torch.zeros(self.batchSize, self.hiddenSize)
 
    local x = nn.Identity()()
    local prev_c = nn.Identity()()
@@ -46,11 +45,11 @@ function LSTM:__init(input, hidden, batch, annotate)
    local write  = nn.CMulTable(){ in_gate, in_transform }
    local next_c = nn.CAddTable(){ memory, write }
    local next_h = nn.CMulTable(){ out_gate, nn.Tanh()(next_c) }
-   local state  = nn.Identity(){ next_c, next_h }
+   --local state  = nn.Identity(){ next_c, next_h }
 
    if annotate then nngraph.annotateNodes() end
-   --self.layer = nn.gModule({x, prev_c, prev_h}, {next_c, next_h})
-   self.layer = nn.gModule({x, prev_c, prev_h}, {state})
+   self.layer = nn.gModule({x, prev_c, prev_h}, {next_c, next_h})
+   --self.layer = nn.gModule({x, prev_c, prev_h}, {state})
 end
 
 function LSTM:updateOutput(input)
@@ -91,14 +90,13 @@ function LSTM:updateGradInput(input, gradOutput)
    if type(gradOutput) == 'table' then
       gradOutputTable = gradOutput
    else
-      gradOutputTable = {gradOutput, self.dprev_c, self.dprev_h}
+      gradOutputTable = {gradOutput, self.dprev_c}
    end
 
    local layer = self.clones[self.step] or self.layer
-   local gix, gic, gih = unpack(layer:updateGradInput(self.input, gradOutputTable))
+   local gix, gic, _ = unpack(layer:updateGradInput(self.input, gradOutputTable))
    self.gradInput:resizeAs(gix):copy(gix)
    self.dprev_c:resizeAs(gic):copy(gic)
-   self.dprev_h:resizeAs(gih):copy(gih)
    return self.gradInput
 end
 
@@ -118,7 +116,7 @@ function LSTM:accGradParameters(input, gradOutput, scale)
    if type(gradOutput) == 'table' then
       gradOutputTable = gradOutput
    else
-      gradOutputTable = {gradOutput, self.dprev_c, self.dprev_h}
+      gradOutputTable = {gradOutput, self.dprev_c}
    end
 
    local layer = self.clones[self.step] or self.layer
