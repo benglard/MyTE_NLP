@@ -170,7 +170,7 @@ end
 local tts = torch.Tensor.sum
 local function sum(t, axis)
    -- weird sum to allow negative axes
-   axis = axis or 0
+   axis = axis or 1
    if axis >= 0 then return tts(t, axis) end
    if axis == -1 then
       local size = t:size(2)

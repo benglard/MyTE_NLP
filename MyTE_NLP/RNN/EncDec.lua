@@ -1,15 +1,16 @@
 local EncDec, parent = torch.class('rnn.EncDec', 'rnn.Module')
 
-function EncDec:__init(encoder, decoder, stop, input, hidden, batch, seq)
+function EncDec:__init(encoder, decoder, stop, input, hidden, batch, seq, vocab)
    --[[
       REQUIRES:
          encoder -> an instance of nn.Module or nngraph.gModule
          decoder -> an instance of nn.Module or nngraph.gModule
+         stop -> stop symbol
          input -> a number
          hidden -> a number
          batch -> a number or nil
          seq -> a number or nil
-         stop -> stop symbol
+         vocab -> size of vocabulary
       EFFECTS:
          Creates an instance of the rnn.EncDec class for use
          in building recurrent nueral network
@@ -25,6 +26,7 @@ function EncDec:__init(encoder, decoder, stop, input, hidden, batch, seq)
    self.layer:add(decoder)
 
    self.stop = stop
+   self.vocabSize = vocab
    self:restart()
 end
 
@@ -41,15 +43,12 @@ function EncDec:updateOutput(input)
    local ds = self.step.decoder
    local enc = self.encoder.clones[es]
    local dec = self.decoder.clones[ds]
-
    local stop = input == self.stop
+
    if stop and (not self.estop or es == self.seqSize) then
-      input = torch.Tensor(self.batchSize, self.inputSize):typeAs(self.prev)
-      for i = 1, self.batchSize do
-         input[i][self.inputSize] = 1.0
-      end
+      input = torch.Tensor(self.batchSize):typeAs(self.prev):fill(self.vocabSize)
       self.inputs[es]:copy(input)
-      dec.modules[1].prev_h[1]:copy(self.prev)
+      self.decoder.clones[1].modules[1].prev_h[1]:copy(self.prev)
       self.estop = true
       return enc:forward(input)
    elseif stop and (self.estop or ds == self.seqSize) then
@@ -150,7 +149,7 @@ function EncDec:__tostring__()
          self.layer
    ]]
 
-   return tostring(self.layer)
+   return 'rnn.EncDec: ' .. tostring(self.layer)
 end
 
 EncDec.encode = EncDec.updateOutput
