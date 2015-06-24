@@ -59,7 +59,7 @@ function EncDec:updateOutput(input)
       self.inputs[es]:copy(input)
       local output = enc:forward(input)
       self.step.encoder = es + 1
-      self.prev:resizeAs(output):typeAs(output):copy(output)
+      self.prev:typeAs(output):resizeAs(output):copy(output)
       return output
    elseif ds < self.seqSize then
       if not self.train then
