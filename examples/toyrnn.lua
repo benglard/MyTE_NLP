@@ -1,5 +1,17 @@
+-- Modeled after https://github.com/bshillingford/autobw.torch/blob/master/examples/rnn_example.lua
 require '../MyTE_NLP'
-require 'optim'
+
+local cmd = torch.CmdLine()
+cmd:option('--layer', 'rec', 'rec | lstm | gru')
+cmd:option('--debug', false, 'set nngraph debugging mode')
+cmd:option('--clone', false, 'clone over time steps')
+cmd:option('--kp', false, 'Keep params init from autobw')
+local opt = cmd:parse(arg or {})
+local layer = nil
+if     opt.layer == 'rec'  then layer = rnn.Recurrent
+elseif opt.layer == 'lstm' then layer = rnn.LSTM
+elseif opt.layer == 'gru'  then layer = rnn.GRU
+else error('Invalid layer type') end
 
 local n_input = 1
 local n_output = 1
@@ -8,12 +20,14 @@ local batch_size = 15
 local seq_length = 5
 
 local model = nn.Sequential()
-model:add(rnn.Recurrent(n_input, n_hidden, batch_size, true):apply('rnn', true))
+model:add(layer(n_input, n_hidden, batch_size, true):apply('rnn', opt.debug))
 model:add(nn.Linear(n_hidden, n_output))
 local criterion = nn.MSECriterion()
 
---model:clone(seq_length)
---criterion:clone(seq_length)
+if opt.clone then
+   model:clone(seq_length)
+   criterion:clone(seq_length)
+end
 
 local data = torch.linspace(0, 20*math.pi, 1000):sin():view(-1, 1)
 local start_idx = torch.Tensor(batch_size):uniform():mul(data:size(1) - seq_length):ceil():long()
@@ -29,7 +43,7 @@ local function next_batch()
 end
 
 local params, grads = model:getParameters()
-params:uniform(-0.1, 0.1)
+if opt.kp then params:uniform(-0.1, 0.1) end
 
 local function fopt(x)
    if params ~= x then

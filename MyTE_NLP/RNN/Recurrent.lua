@@ -45,7 +45,6 @@ function Recurrent:updateOutput(input)
    local layer = self.clones[self.step] or self.layer
    local next_h = layer:updateOutput(self.input)
    self.output:resizeAs(next_h):copy(next_h)
-   self.prev_h:resizeAs(next_h):copy(next_h)
    return self.output
 end
 
@@ -80,4 +79,5 @@ function Recurrent:accGradParameters(input, gradOutput, scale)
 
    local layer = self.clones[self.step] or self.layer
    layer:accGradParameters(self.input, gradOutput)
+   self.prev_h:resizeAs(self.output):copy(self.output)
 end

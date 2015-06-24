@@ -16,17 +16,18 @@ function LSTM:__init(input, hidden, batch, annotate)
 
    parent.__init(self, input, hidden, batch)
 
-   self.prev_c  = torch.zeros(self.batchSize, self.hiddenSize)
+   self.prev_c = torch.zeros(self.batchSize, self.hiddenSize)
+   self.next_c = torch.zeros(self.batchSize, self.hiddenSize)
+   self.prev_h = torch.zeros(self.batchSize, self.hiddenSize)
    self.dprev_c = torch.zeros(self.batchSize, self.hiddenSize)
-   self.prev_h  = torch.zeros(self.batchSize, self.hiddenSize)
+   self.dnext_c = torch.zeros(self.batchSize, self.hiddenSize)
 
    local x = nn.Identity()()
    local prev_c = nn.Identity()()
    local prev_h = nn.Identity()()
 
    -- Calculate all four gates in one go
-   local input = nn.Linear(self.inputSize, self.hiddenSize)(x)
-   local i2h   = nn.Linear(self.hiddenSize, 4 * self.hiddenSize)(input)
+   local i2h   = nn.Linear(self.inputSize, 4 * self.hiddenSize)(x)
    local h2h   = nn.Linear(self.hiddenSize, 4 * self.hiddenSize)(prev_h)
    local gates = nn.CAddTable(){ i2h, h2h }
 
@@ -45,11 +46,9 @@ function LSTM:__init(input, hidden, batch, annotate)
    local write  = nn.CMulTable(){ in_gate, in_transform }
    local next_c = nn.CAddTable(){ memory, write }
    local next_h = nn.CMulTable(){ out_gate, nn.Tanh()(next_c) }
-   --local state  = nn.Identity(){ next_c, next_h }
 
    if annotate then nngraph.annotateNodes() end
    self.layer = nn.gModule({x, prev_c, prev_h}, {next_c, next_h})
-   --self.layer = nn.gModule({x, prev_c, prev_h}, {state})
 end
 
 function LSTM:updateOutput(input)
@@ -69,9 +68,8 @@ function LSTM:updateOutput(input)
 
    local layer = self.clones[self.step] or self.layer
    local next_c, next_h = unpack(layer:updateOutput(self.input))
+   self.next_c:resizeAs(next_c):copy(next_c)
    self.output:resizeAs(next_h):copy(next_h)
-   self.prev_c:resizeAs(next_c):copy(next_c)
-   self.prev_h:resizeAs(next_h):copy(next_h)
    return self.output
 end
 
@@ -86,17 +84,17 @@ function LSTM:updateGradInput(input, gradOutput)
          correct time-step
    ]]
 
-   local gradOutputTable
+   self.gradOutputTable = {}
    if type(gradOutput) == 'table' then
-      gradOutputTable = gradOutput
+      self.gradOutputTable = gradOutput
    else
-      gradOutputTable = {gradOutput, self.dprev_c}
+      self.gradOutputTable = {self.dprev_c, gradOutput}
    end
 
    local layer = self.clones[self.step] or self.layer
-   local gix, gic, _ = unpack(layer:updateGradInput(self.input, gradOutputTable))
+   local gix, gic, _ = unpack(layer:updateGradInput(self.input, self.gradOutputTable))
    self.gradInput:resizeAs(gix):copy(gix)
-   self.dprev_c:resizeAs(gic):copy(gic)
+   self.dnext_c:resizeAs(gic):copy(gic)
    return self.gradInput
 end
 
@@ -112,13 +110,9 @@ function LSTM:accGradParameters(input, gradOutput, scale)
          correct time-step
    ]]
 
-   local gradOutputTable
-   if type(gradOutput) == 'table' then
-      gradOutputTable = gradOutput
-   else
-      gradOutputTable = {gradOutput, self.dprev_c}
-   end
-
    local layer = self.clones[self.step] or self.layer
-   layer:accGradParameters(self.input, gradOutputTable)
+   layer:accGradParameters(self.input, self.gradOutputTable)
+   self.prev_c:resizeAs(self.next_c):copy(self.next_c)
+   self.prev_h:resizeAs(self.output):copy(self.output)
+   self.dprev_c:resizeAs(self.dnext_c):copy(self.dnext_c)
 end

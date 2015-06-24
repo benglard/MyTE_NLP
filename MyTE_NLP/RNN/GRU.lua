@@ -16,7 +16,6 @@ function GRU:__init(input, hidden, batch, annotate)
 
    parent.__init(self, input, hidden, batch)
    self.prev_h = torch.zeros(self.batchSize, self.hiddenSize)
-   self.dprev_h = torch.zeros(self.batchSize, self.hiddenSize)
 
    local x = nn.Identity()()
    local prev_h = nn.Identity()()
@@ -66,7 +65,6 @@ function GRU:updateOutput(input)
    local layer = self.clones[self.step] or self.layer
    local next_h = layer:updateOutput(self.input)
    self.output:resizeAs(next_h):copy(next_h)
-   self.prev_h:resizeAs(next_h):copy(next_h)
    return self.output
 end
 
@@ -82,9 +80,8 @@ function GRU:updateGradInput(input, gradOutput)
    ]]
 
    local layer = self.clones[self.step] or self.layer
-   local gix, gih = unpack(layer:updateGradInput(self.input, gradOutput))
+   local gix, _ = unpack(layer:updateGradInput(self.input, gradOutput))
    self.gradInput:resizeAs(gix):copy(gix)
-   self.dprev_h:resizeAs(gih):copy(gih)
    return self.gradInput
 end
 
@@ -102,4 +99,5 @@ function GRU:accGradParameters(input, gradOutput, scale)
 
    local layer = self.clones[self.step] or self.layer
    layer:accGradParameters(self.input, gradOutput)
+   self.prev_h:resizeAs(self.output):copy(self.output)
 end
