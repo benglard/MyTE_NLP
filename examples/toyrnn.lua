@@ -20,7 +20,7 @@ local batch_size = 15
 local seq_length = 5
 
 local model = nn.Sequential()
-model:add(layer(n_input, n_hidden, batch_size, true):apply('rnn', opt.debug))
+model:add(layer(n_input, n_hidden, batch_size, n_output, true):apply('rnn', opt.debug))
 model:add(nn.Linear(n_hidden, n_output))
 local criterion = nn.MSECriterion()
 

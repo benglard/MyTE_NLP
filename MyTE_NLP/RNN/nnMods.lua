@@ -89,6 +89,17 @@ end
 
 -------- Sequential
 
+Sequential.recycle = function(self, prevClone)
+   local nextClone = self.clones[self.step]
+   if nextClone ~= nil then
+      for i, mod in pairs(nextClone.modules) do
+         if mod.dprev_c ~= nil then
+            mod.dprev_c = prevClone.modules[i].dprev_c
+         end
+      end
+   end
+end
+
 Sequential.backward = function(self, input, gradOutput, scale)
    --[[
       REQUIRES:
@@ -114,10 +125,13 @@ Sequential.backward = function(self, input, gradOutput, scale)
       currentModule = previousModule
    end
    currentGradOutput = currentModule:backward(input, currentGradOutput, scale)
-   self.gradInput = currentGradOutput
+   self.gradInput = currentGradOutput   
    self.step = self.step + 1
+   self:recycle(clone)
+
    if self.step > #self.clones then
       self.step = 1
+      self:recycle(clone)
    end
 
    for i = 1, nmods do
