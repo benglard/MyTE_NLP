@@ -97,7 +97,6 @@ function DeepQ:__init(env, options)
    end
    
    self.memory = rl.DeepQMemory(self.memory)
-   self.gpu = false
 end
 
 function DeepQ:buildNetwork()

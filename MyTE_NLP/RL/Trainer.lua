@@ -80,14 +80,11 @@ function RLTrainer:predict(input, params)
 
    local rv = {input}
    for n = 1, length do
-      local t = torch.zeros(self.agent.nstates)
-      t[input] = 1.0
-      local o = self.agent.network:forward(t):clone()
-
+      local o = self.agent.network:forward(input):clone()
       if sample then
-        local probs = torch.exp(o:div(temp))
-        probs:div(probs:sum(1):squeeze())
-        input = torch.multinomial(probs:float(), 1):squeeze()
+         local probs = torch.exp(o:div(temp))
+         probs:div(probs:sum(1):squeeze())
+         input = torch.multinomial(probs:float(), 1):squeeze()
       else
          local m, am = o:max(1)
          input = am:squeeze()

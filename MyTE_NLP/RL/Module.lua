@@ -32,6 +32,7 @@ function Module:__init(env, options)
 
    self.w  = torch.Tensor()
    self.dw = torch.Tensor()
+   self.gpu = false
 end
 
 function Module:reset(stdv)
