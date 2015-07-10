@@ -172,7 +172,7 @@ function DeepQ:learn(reward)
 
    if self.prev_r ~= nil and self.lr > 0 then
       -- qUpdate, loss is a measure of surprise to the agent
-      self.loss = self:qUpdate()
+      self.loss = self:qUpdate('learn')
 
       -- Store experience in replay memory
       if self.nsteps % self.interval == 0 then
@@ -209,7 +209,11 @@ function DeepQ:qUpdate(prev_s, prev_a, prev_r, next_s, next_a)
          the network's paramaters.
    ]]
 
-   prev_s = prev_s or self.prev_s
+   local learned = false
+   if prev_s == 'learn' or prev_s == nil then
+      prev_s = self.prev_s
+      learned = true
+   end
    prev_a = prev_a or self.prev_a
    prev_r = prev_r or self.prev_r
    next_s = next_s or self.next_s
@@ -231,6 +235,8 @@ function DeepQ:qUpdate(prev_s, prev_a, prev_r, next_s, next_a)
    grad:clamp(-self.gradclip, self.gradclip)
 
    self.network:backward(input, grad)
-   self:update(self.network, self.optim, self.updates)
+   if learned then
+      self:update(self.network, self.optim, self.updates)
+   end
    return loss
 end
