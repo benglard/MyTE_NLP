@@ -249,6 +249,8 @@ function DeepQ:cuda()
    if cutorch ~= nil then
       self.gpu = true
       self.network = self.network:cuda()
+      self.w = self.w:cuda()
+      self.dw = self.dw:cuda()
    end
    return self
 end
