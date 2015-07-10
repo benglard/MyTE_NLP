@@ -249,6 +249,7 @@ end
 function DeepQ:cuda()
    self.gpu = true
    self.network = self.network:cuda()
+   return self
 end
 
 function DeepQ:transfer(v)
