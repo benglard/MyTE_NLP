@@ -130,7 +130,7 @@ function DeepQ:act(state)
    local input, output
 
    if type(state) == 'number' then
-      assert(state > 0 and state < self.nstates)
+      assert(state > 0 and state <= self.nstates)
       input = torch.zeros(self.nstates)
       input[state] = 1.0
    else
