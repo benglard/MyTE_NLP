@@ -97,7 +97,7 @@ function DeepQ:__init(env, options)
    end
    
    self.memory = rl.DeepQMemory(self.memory)
-   self.grad = nil
+   self.gpu = false
 end
 
 function DeepQ:buildNetwork()
@@ -134,11 +134,12 @@ function DeepQ:act(state)
       assert(state > 0 and state < self.nstates)
       input = torch.zeros(self.nstates)
       input[state] = 1.0
-   elseif state:isTensor() then
-      input = torch.Tensor(state:size()):copy(state)
+   else
+      input = state:clone()
       local max, argmax = input:max(1)
       state = argmax:squeeze()
    end
+   input = self:transfer(input)
 
    if math.random() < self.epsilon then
       -- epsilon greedy policy
@@ -147,9 +148,13 @@ function DeepQ:act(state)
       output[action] = 1.0
    else
       -- greedy wrt Q function
-      output = self.network:forward(input)
+      output = self.network:forward(input):double()
       local max, argmax = output:max(1)
       action = argmax:squeeze()
+   end
+
+   if self.gpu then
+      output = output:typeAs(torch.Tensor())
    end
 
    self.output:resizeAs(output):copy(output)
@@ -220,17 +225,17 @@ function DeepQ:qUpdate(prev_s, prev_a, prev_r, next_s, next_a)
    next_a = next_a or self.next_a
 
    -- Compute Q(s,a) = r + gamma * max_a' Q(s',a')
-   local input = torch.zeros(self.nstates)
+   local input = self:transfer(torch.zeros(self.nstates))
    input[next_s] = 1.0
    local output = self.network:forward(input)
    local maxQ = prev_r + self.gamma * output:max()
 
-   input = torch.zeros(self.nstates)
+   input = self:transfer(torch.zeros(self.nstates))
    input[prev_s] = 1.0
    local pred = self.network:forward(input)
 
    local loss = pred[prev_a] - maxQ
-   local grad = torch.zeros(self.nactions)
+   local grad = self:transfer(torch.zeros(self.nactions))
    grad[prev_a] = loss
    grad:clamp(-self.gradclip, self.gradclip)
 
@@ -239,4 +244,14 @@ function DeepQ:qUpdate(prev_s, prev_a, prev_r, next_s, next_a)
       self:update(self.network, self.optim, self.updates)
    end
    return loss
+end
+
+function DeepQ:cuda()
+   self.gpu = true
+   self.network = self.network:cuda()
+end
+
+function DeepQ:transfer(v)
+   if self.gpu then return v:cuda()
+   else return v end
 end
