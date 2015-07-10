@@ -38,6 +38,8 @@ function RLTrainer:train(params)
    local epsdecay = params.epsdecay or 1
    local maxR = params.maxR or 1e8
    local minR = params.minR or 1e-8
+   local ntrain = params.ntrain or false
+   local c = 1
 
    while true do
       local state = self.sf()
@@ -51,6 +53,12 @@ function RLTrainer:train(params)
       if verbose then
          print(string.format('N: %d, Reward: %.3f, Loss: %.3f', 
             self.agent.nsteps, reward, self.agent.loss))
+      else
+         if ntrain then
+            xlua.progress(c, ntrain)
+            c = c + 1
+            if c > ntrain then c = 1 end
+         end
       end
    end
 end
