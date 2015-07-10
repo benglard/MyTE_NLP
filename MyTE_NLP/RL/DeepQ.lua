@@ -246,8 +246,10 @@ function DeepQ:qUpdate(prev_s, prev_a, prev_r, next_s, next_a)
 end
 
 function DeepQ:cuda()
-   self.gpu = true
-   self.network = self.network:cuda()
+   if cutorch ~= nil then
+      self.gpu = true
+      self.network = self.network:cuda()
+   end
    return self
 end
 
