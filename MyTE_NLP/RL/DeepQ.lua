@@ -223,7 +223,7 @@ function DeepQ:qUpdate(prev_s, prev_a, prev_r, next_s, next_a)
    next_s = next_s or self.next_s
    next_a = next_a or self.next_a
 
-   -- Compute Q(s,a) = r + gamma * max_a' Q(s',a')
+   -- Compute Q(s, a) = r + gamma * max_a' Q(s', a')
    local input = self:transfer(torch.zeros(self.nstates))
    input[next_s] = 1.0
    local output = self.network:forward(input)

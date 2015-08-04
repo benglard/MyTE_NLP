@@ -12,7 +12,7 @@ local rvcoab = {
 local batchsize = 1
 local seqsize = 4
 local vocabsize = 5
-local hiddensize = 20
+local hiddensize = 2
 local stop = '<eos>'
 
 local encoder = nn.Sequential()
@@ -39,6 +39,7 @@ local config = {
    learningRateDecay = 5e-7,
    momentum = 0.9
 }
+local reward = 0
 
 while true do
    if state == 1 then
@@ -55,24 +56,27 @@ while true do
    local probs = sm:forward(action)
    local p1 = probs[1]
    local p2 = probs[2]
-   local reward = 0
+   
    local _, pred = probs:max(1)
    pred = pred:squeeze()
 
    if state == 1 then
       if p1 > p2 then
-         reward = 1
+         reward = reward + 1
          correct = correct + 1
+      else
+         reward = reward - 1
       end
    else
       if p2 > p1 then
-         reward = 1
+         reward = reward + 1
          correct = correct + 1
+      else
+         reward = reward - 1
       end
    end
 
    model:backward(reward, config)
-   model:forward('<eos>')
 
    print(i, string.format('%.3f %.3f %.3f', correct/i, p1, p2),
       state, pred, reward, model.decoder.loss)

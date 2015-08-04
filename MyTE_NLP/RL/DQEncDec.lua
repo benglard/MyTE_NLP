@@ -78,10 +78,9 @@ function DQEncDec:backward(reward, config)
    ]]
 
    config = config or {}
-   scale = config.scale or 1
 
    self.decoder:backward(reward)
-   local currentGradOutput = self.decoder.gradInput
+   local currentGradOutput = self.decoder.gradInput:clone()
 
    local ds = self.step.decoder
    if ds == 1 then
@@ -92,10 +91,13 @@ function DQEncDec:backward(reward, config)
       for i = es, 1, -1 do
          local encinput = self.inputs[i]
          local enc = self.encoder.clones[i]
-         enc:backward(encinput, currentGradOutput, scale)
+         enc:backward(encinput, currentGradOutput)
       end
 
-      local feval = function() return loss, self.encdw end
+      local feval = function(x) 
+         if x ~= self.encw then self.encw:copy(x) end
+         return loss, self.encdw
+      end
       optim.sgd(feval, self.encw, config)
    end
 
