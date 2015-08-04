@@ -70,7 +70,11 @@ end
 function DQEncDec:backward(reward, config)
    --[[
       REQUIRES:
+         reward -> a number representing the agent's
+         reward after performing an action
       EFFECTS:
+         config -> a table of options to pass into
+            optim.sgd
    ]]
 
    config = config or {}
