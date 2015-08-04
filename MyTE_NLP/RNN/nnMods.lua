@@ -94,7 +94,7 @@ Sequential.recycle = function(self, prevClone)
    if nextClone ~= nil then
       for i, mod in pairs(nextClone.modules) do
          if mod.dprev_c ~= nil then
-            mod.dprev_c = prevClone.modules[i].dprev_c
+            mod.dprev_c:copy(prevClone.modules[i].dprev_c)
          end
       end
    end

@@ -41,7 +41,7 @@ function Recurrent:updateOutput(input)
    else
       self.input = {input, self.prev_h}
    end
-
+   
    local layer = self.clones[self.step] or self.layer
    local next_h = layer:updateOutput(self.input)
    self.output:resizeAs(next_h):copy(next_h)

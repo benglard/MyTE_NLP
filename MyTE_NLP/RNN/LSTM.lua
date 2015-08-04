@@ -16,9 +16,9 @@ function LSTM:__init(input, hidden, batch, annotate)
 
    parent.__init(self, input, hidden, batch)
 
+   self.prev_h = torch.zeros(self.batchSize, self.hiddenSize)
    self.prev_c = torch.zeros(self.batchSize, self.hiddenSize)
    self.next_c = torch.zeros(self.batchSize, self.hiddenSize)
-   self.prev_h = torch.zeros(self.batchSize, self.hiddenSize)
    self.dprev_c = torch.zeros(self.batchSize, self.hiddenSize)
    self.dnext_c = torch.zeros(self.batchSize, self.hiddenSize)
 
