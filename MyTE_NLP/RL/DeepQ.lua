@@ -97,6 +97,7 @@ function DeepQ:__init(env, options)
    end
    
    self.memory = rl.DeepQMemory(self.memory)
+   self.gradInput:resize(self.nstates):zero()
 end
 
 function DeepQ:buildNetwork()
@@ -197,7 +198,6 @@ function DeepQ:learn(reward)
    self.prev_r = reward
 end
 
-
 function DeepQ:qUpdate(prev_s, prev_a, prev_r, next_s, next_a)
    --[[
       REQUIRES:
@@ -238,8 +238,10 @@ function DeepQ:qUpdate(prev_s, prev_a, prev_r, next_s, next_a)
    grad[prev_a] = loss
    grad:clamp(-self.gradclip, self.gradclip)
 
-   self.network:backward(input, grad)
+   local currentGradInput = self.network:backward(input, grad)
+
    if learned then
+      self.gradInput:copy(currentGradInput)
       self:update(self.network, self.optim, self.updates)
    end
    return loss

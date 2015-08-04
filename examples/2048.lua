@@ -391,15 +391,16 @@ rl.RLTrainer(
       local ps = sm:forward(action)
       local max, argmax = ps:max(1)
       local direction = argmax:squeeze()
-      --[[if direction == lastD then
+      if direction == lastD then
          ps[direction] = 0.0
          max, argmax = ps:max(1)
          direction = argmax:squeeze()
       end
+      print(ps, direction)
       lastD = direction
-      local direction = torch.multinomial(ps, 1):squeeze()]]
+      --local direction = torch.multinomial(ps, 1):squeeze()
       Game:move(direction)
-      --print(Game.grid)
+      print(Game.grid)
       return Game.score
    end
 ):train(params)
