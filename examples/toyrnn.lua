@@ -69,6 +69,7 @@ end
 
 local s = 0
 for i = 1, 10000 do
+--for i = 1, 10 do
    local _, fx = optim.sgd(fopt, params, {})
    print(i, fx[1])
    s = s + fx[1]

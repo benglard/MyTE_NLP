@@ -1,4 +1,5 @@
 local Module, parent = torch.class('rnn.Module', 'nn.Module')
+Module.RECURRENT = true
 
 function Module:__init(inputSize, hiddenSize, batchSize, seqLength)
    --[[
