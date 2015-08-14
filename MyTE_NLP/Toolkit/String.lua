@@ -38,6 +38,25 @@ function String:__len()
    return #self.str
 end
 
+function String:equals(other)
+   --[[
+      REQUIRES:
+         other -> a lua string or nlp.String
+      EFFECTS:
+         Returns true if the two lua string
+         representations are equal
+   ]]
+
+   local t = torch.type(other)
+   if t == 'string' then
+      return self.str == other
+   elseif t == 'nlp.String' then
+      return self.str == other.str
+   else
+      error('String.equals requires argument of type string or nlp.String')
+   end
+end
+
 function String:get(key)
    --[[
       REQUIRES:
@@ -185,6 +204,7 @@ end
 String.__call = String.get
 String.__add  = String.add
 String.__mul  = String.mul
+String.__eq   = String.equals
 
 --[[ 
 Allow every function from the string library

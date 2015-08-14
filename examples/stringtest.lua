@@ -72,3 +72,6 @@ print(nlp.trigrams(s))
 print(nlp.ngrams(s, 2, true, true, 'yo'))
 
 print(nlp.word_tokenize('a b c d e'))
+
+print(nlp.String('r') == nlp.String('r'))
+print(nlp.String('r'):equals 'r')
