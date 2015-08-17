@@ -46,9 +46,9 @@ function EncDec:updateOutput(input)
    local stop = input == self.stop
 
    if stop and (not self.estop or es == self.seqSize) then
-      input = torch.Tensor(self.batchSize):typeAs(self.prev):fill(self.vocabSize)
+      input = torch.Tensor(self.inputSize):typeAs(self.prev):fill(self.vocabSize)
       self.inputs[es]:copy(input)
-      self.decoder.clones[1].modules[1].prev_h[1]:copy(self.prev)
+      self.decoder.clones[1].modules[1].prev_h:copy(self.prev)
       self.estop = true
       return enc:forward(input)
    elseif stop and (self.estop or ds == self.seqSize) then
