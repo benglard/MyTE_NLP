@@ -1,6 +1,6 @@
 local EncDec, parent = torch.class('rnn.EncDec', 'rnn.Module')
 
-function EncDec:__init(encoder, decoder, stop, input, hidden, batch, seq, vocab)
+function EncDec:__init(encoder, decoder, stop, input, hidden, batch, seq, vocab, dseq)
    --[[
       REQUIRES:
          encoder -> an instance of nn.Module or nngraph.gModule
@@ -11,6 +11,7 @@ function EncDec:__init(encoder, decoder, stop, input, hidden, batch, seq, vocab)
          batch -> a number or nil
          seq -> a number or nil
          vocab -> size of vocabulary
+         dseq -> a number or nil, nclones of decoder or seq
       EFFECTS:
          Creates an instance of the rnn.EncDec class for use
          in building recurrent nueral network
@@ -19,7 +20,11 @@ function EncDec:__init(encoder, decoder, stop, input, hidden, batch, seq, vocab)
 
    parent.__init(self, input, hidden, batch, seq)
    self.encoder = encoder:clone(self.seqSize)
-   self.decoder = decoder:clone(self.seqSize)
+
+   local ndc = self.seqSize
+   dseq = dseq or false
+   if dseq then ndc = dseq end
+   self.decoder = decoder:clone(ndc)
 
    self.layer = nn.Sequential()
    self.layer:add(encoder)
