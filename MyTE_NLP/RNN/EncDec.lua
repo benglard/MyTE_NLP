@@ -25,6 +25,7 @@ function EncDec:__init(encoder, decoder, stop, input, hidden, batch, seq, vocab,
    dseq = dseq or false
    if dseq then ndc = dseq end
    self.decoder = decoder:clone(ndc)
+   self.dseqSize = ndc
 
    self.layer = nn.Sequential()
    self.layer:add(encoder)
@@ -56,7 +57,7 @@ function EncDec:updateOutput(input)
       self.decoder.clones[1].modules[1].prev_h:copy(self.prev)
       self.estop = true
       return enc:forward(input)
-   elseif stop and (self.estop or ds == self.seqSize) then
+   elseif stop and (self.estop or ds == self.dseqSize) then
       self.estop = false
       return nil
    elseif es < self.seqSize and (not self.estop) then
@@ -66,7 +67,7 @@ function EncDec:updateOutput(input)
       self.step.encoder = es + 1
       self.prev = self.prev:typeAs(output):resizeAs(output):copy(output)
       return output
-   elseif ds < self.seqSize then
+   elseif ds < self.dseqSize then
       if not self.train then
          self.step.decoder = ds + 1
       end
@@ -154,7 +155,8 @@ function EncDec:__tostring__()
          self.layer
    ]]
 
-   return 'rnn.EncDec: ' .. tostring(self.layer)
+   local template = 'rnn.EncDec(%s,%s): %s'
+   return string.format(template, self.seqSize, self.dseqSize, self.layer)
 end
 
 EncDec.encode = EncDec.updateOutput
