@@ -166,6 +166,7 @@ function Module:clone(T)
 end
 
 function Module:__tostring__()
-   local dims = '(' .. self.inputSize .. ' -> ' .. self.hiddenSize .. ')'
+   local dims = string.format('(%s -> %s)',
+      self.inputSize, self.hiddenSize)
    return torch.type(self) .. dims
 end

@@ -6,6 +6,7 @@ cmd:option('--layer', 'rec', 'rec | lstm | gru')
 cmd:option('--debug', false, 'set nngraph debugging mode')
 cmd:option('--clone', false, 'clone over time steps')
 cmd:option('--kp', false, 'Keep params init from autobw')
+cmd:option('--n', 10000, 'n iterations')
 local opt = cmd:parse(arg or {})
 local layer = nil
 if     opt.layer == 'rec'  then layer = rnn.Recurrent
@@ -28,6 +29,8 @@ if opt.clone then
    model:clone(seq_length)
    criterion:clone(seq_length)
 end
+
+print(model)
 
 local data = torch.linspace(0, 20*math.pi, 1000):sin():view(-1, 1)
 local start_idx = torch.Tensor(batch_size):uniform():mul(data:size(1) - seq_length):ceil():long()
@@ -68,8 +71,7 @@ local function fopt(x)
 end
 
 local s = 0
-for i = 1, 10000 do
---for i = 1, 10 do
+for i = 1, opt.n do
    local _, fx = optim.sgd(fopt, params, {})
    print(i, fx[1])
    s = s + fx[1]

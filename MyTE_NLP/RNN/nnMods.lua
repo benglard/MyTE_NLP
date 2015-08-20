@@ -148,16 +148,20 @@ Sequential.__tostring__ = function(self)
    local tab = '  '
    local line = '\n'
    local next = ' -> '
-   local str = 'nn.Sequential(' .. #self.clones .. ')'
-   str = str .. ' {' .. line .. tab .. '[input'
-   for i=1,#self.modules do
-      str = str .. next .. '(' .. i .. ')'
+   local str = string.format('nn.Sequential(%d) {%s%s[input',
+      #self.clones, line, tab)
+   
+   for i = 1, #self.modules do
+      str = string.format('%s%s(%d)', str, next, i)
    end
    str = str .. next .. 'output]'
-   for i=1,#self.modules do
-      str = str .. line .. tab .. '(' .. i .. '): ' .. tostring(self.modules[i]):gsub(line, line .. tab)
+
+   for i = 1, #self.modules do
+      local mod = tostring(self.modules[i]):gsub(line, line .. tab)
+      str = string.format('%s%s%s(%d): %s', str, line, tab, i, mod)
    end
    str = str .. line .. '}'
+
    return str
 end
 
