@@ -12,7 +12,7 @@ decoder:add(rnn.Recurrent(hiddensize, hiddensize, batchSize, true):apply('dec', 
 decoder:add(nn.Linear(hiddensize, alphabetSize))
 decoder:add(nn.Threshold())
 decoder:add(nn.LogSoftMax())
-local model = rnn.EncDec(encoder, decoder, 'S', alphabetSize, hiddensize, batchSize, seqSize)
+local model = rnn.EncDec(encoder, decoder, 'S', alphabetSize, hiddensize, batchSize, seqSize, alphabetSize)
 local criterion = nn.ClassNLLCriterion():clone(seqSize)
 print(model, criterion)
 
@@ -32,4 +32,4 @@ for n = 1, 15 do
    o = model:state()
    print('#' .. n .. ' out')
 end
---model:forward('S')
+model:forward('S')

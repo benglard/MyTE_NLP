@@ -92,7 +92,10 @@ end
 Sequential.recycle = function(self, prevClone)
    local nextClone = self.clones[self.step]
    if nextClone ~= nil then
-      for i, mod in pairs(nextClone.modules) do
+      for i, mod in ipairs(nextClone.modules) do
+         if mod.prev_c ~= nil then
+            mod.prev_c:copy(prevClone.modules[i].prev_c)
+         end
          if mod.dprev_c ~= nil then
             mod.dprev_c:copy(prevClone.modules[i].dprev_c)
          end
