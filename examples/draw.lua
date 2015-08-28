@@ -49,7 +49,7 @@ end
 for i = 1, opt.n do
    local _, loss = optim.adagrad(feval, params, config)
    if i % 10 == 0 then
-      print(string.format("iteration %4d, loss = %6.6f", i, loss[1]))      
+      print(string.format('iteration %4d, loss = %6.6f', i, loss[1]))      
   end
 end
 
