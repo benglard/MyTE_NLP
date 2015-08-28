@@ -1,7 +1,6 @@
 require './utils'
 
 rl = {}
-include 'attention.lua'
 include 'Module.lua'
 include 'DeepQ.lua'
 include 'DQEncDec.lua'

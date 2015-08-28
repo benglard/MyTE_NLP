@@ -183,4 +183,7 @@ local function sum(t, axis)
 end
 
 torch.sum = sum
-torch.Tensor.sum = sum
+torch.Tensor.sum = function(self, other, axis)
+   local rv = sum(other, axis)
+   self:resizeAs(rv):copy(rv)
+end

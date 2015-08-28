@@ -48,7 +48,7 @@ function LSTM:__init(input, hidden, batch, annotate)
    local next_h = nn.CMulTable(){ out_gate, nn.Tanh()(next_c) }
 
    if annotate then nngraph.annotateNodes() end
-   self.layer = nn.gModule({x, prev_c, prev_h}, {next_c, next_h})
+   self.layer = nn.gModule(self.inputs, self.outputs)
 end
 
 function LSTM:updateOutput(input)

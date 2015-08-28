@@ -1,4 +1,4 @@
-return function(self, T)
+return function(self, T, verbose)
    --[[
       REQUIRES:
          self -> an instance of nn.Module or nngraph.gModule
@@ -8,6 +8,8 @@ return function(self, T)
       EFFECTS:
          Clones self T times
    ]]
+
+   verbose = verbose or false
 
    self.clones = {}
    local params, gradParams
@@ -27,6 +29,7 @@ return function(self, T)
    mem:writeObject(self)
 
    for t = 1, T do
+      if verbose then print(t) end
       -- We need to use a new reader for each clone.
       -- We don't want to use the pointers to already read objects.
       local reader = torch.MemoryFile(mem:storage(), 'r'):binary()
