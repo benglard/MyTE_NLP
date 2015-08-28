@@ -1,13 +1,23 @@
 require '../MyTE_NLP'
+require 'image'
 local mnist = require 'mnist'
+
+local cmd = torch.CmdLine()
+cmd:option('--verbose', false, 'verbose')
+cmd:option('--debug', false, 'debug')
+cmd:option('--n', 1000, 'n epochs')
+local opt = cmd:parse(arg or {})
+print(opt)
 
 local batch = 20
 local A = 28
 local seq = 50
+local hidden = 100
 
-local model = rnn.Draw(28 * 28, 100, batch, seq, batch, 28, 28, batch)
+local model = rnn.Draw(A * A, hidden, batch, seq, batch, A, A, 3, opt.verbose)
    :build(true)
-   :apply('enc', 'dec', true)
+   :apply('enc', 'dec', opt.debug)
+print(model)
 local params, grads = model:getParameters()
 local config = {learningRate = 1e-2}
 local trainset = mnist.traindataset()
@@ -26,7 +36,7 @@ local feval = function(ps)
    for i = 1, seq do
       model:forward{features, patch}
    end
-   local loss = self.loss_t
+   local loss = model.loss_t
    loss = loss / seq
    for i = seq, 1, -1 do
       model:backward(patch)
@@ -36,9 +46,12 @@ local feval = function(ps)
    return loss, grads
 end
 
-for i = 1, 1000 do
+for i = 1, opt.n do
    local _, loss = optim.adagrad(feval, params, config)
    if i % 10 == 0 then
       print(string.format("iteration %4d, loss = %6.6f", i, loss[1]))      
   end
 end
+
+local path = os.getenv('HOME') .. '/Desktop/draw'
+model:generate(features, patch, true, path)

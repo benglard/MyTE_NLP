@@ -29,7 +29,7 @@ return function(self, T, verbose)
    mem:writeObject(self)
 
    for t = 1, T do
-      if verbose then print(t) end
+      if verbose then print('clone #'.. t) end
       -- We need to use a new reader for each clone.
       -- We don't want to use the pointers to already read objects.
       local reader = torch.MemoryFile(mem:storage(), 'r'):binary()

@@ -199,3 +199,26 @@ Container.parameters = function(self)
       return params, grads
    end
 end
+
+-------- nn.ExpandAs
+
+local ExpandAs, _ = torch.class('nn.ExpandAs', 'nn.Module')
+
+function ExpandAs:__init()
+   Module.__init(self)
+end
+
+function ExpandAs:updateOutput(input)
+   local prev, other = unpack(input)
+   self.output:resizeAs(prev):copy(prev):expandAs(self.output, other)
+   return self.output
+end
+
+function ExpandAs:updateGradInput(input)
+   local prev, gradOutput = unpack(input)
+   self.gradInput
+      :resizeAs(prev)
+      :copy(prev)
+      :expandAs(self.gradInput, gradOutput)
+   return self.gradInput
+end
