@@ -28,6 +28,14 @@ function Draw:__init(input, hidden, batch, seq, output, width, height, window, v
 end
 
 function Draw:build(annotate)
+   --[[
+      REQUIRES:
+         annotate -> a boolean or nil, whether to annotate nodes
+            in the nngraph
+      EFFECTS:
+         Builds a DRAW network!
+   ]]
+
    self.doannotate = annotate or false
 
    self:log 'Making encoder'
@@ -50,6 +58,15 @@ function Draw:build(annotate)
 end
 
 function Draw:ncopies(x, dim)
+   --[[
+      REQUIRES:
+         x -> an nngraph.Node
+         dim -> a number or nil
+      EFFECTS:
+         Copies a single number dim times into a tensor
+         of size (1, dim)
+   ]]
+
    dim = dim or self.A
    local y = nn.Reshape(1)(x)
    local t = {}
@@ -59,6 +76,19 @@ function Draw:ncopies(x, dim)
 end
 
 function Draw:filterbank(gamma, dim, patch, delta, sigma)
+   --[[
+      REQUIRES:
+         gamma -> nngraph.Node, representing the center of a patch
+         dim -> a number
+         patch -> nngraph.Node, ascending intervals
+         delta -> stride of attention window
+         sigma -> std. dev of window
+      EFFECTS:
+         Creates filterbank matrices of attention mechanism,
+         given by equations (25) and (26) here:
+         http://arxiv.org/pdf/1502.04623.pdf
+   ]]
+
    local filters = {}
    for i = 1, self.N do
       local mu = nn.MulConstant(-1)(nn.CAddTable(){
@@ -80,6 +110,16 @@ function Draw:filterbank(gamma, dim, patch, delta, sigma)
 end
 
 function Draw:LSTM(x, prev_c, prev_h, input)
+   --[[
+      REQUIRES:
+         x -> nngraph.Node
+         prev_c -> nngraph.Node
+         prev_h -> nngraph.Node
+         input -> size of input, a number
+      EFFECTS:
+         Creates an LSTM layer
+   ]]
+
    local i2h = nn.Linear(input, 4 * self.hiddenSize)(x)
    local h2h = nn.Linear(self.hiddenSize, 4 * self.hiddenSize)(prev_h)
    local gates = nn.CAddTable(){ i2h, h2h }
@@ -98,6 +138,12 @@ function Draw:LSTM(x, prev_c, prev_h, input)
 end
 
 function Draw:buildEncoder()
+   --[[
+      EFFECTS:
+         Builds the encoder of a DRAW network
+         with an attentive reader
+   ]]
+
    local hidden = self.hiddenSize
    local output = self.outputSize
 
@@ -149,6 +195,12 @@ function Draw:buildEncoder()
 end
 
 function Draw:buildDecoder()
+   --[[[
+      EFFECTS:
+         Builds the decoder of a DRAW network
+         with an attentive writer
+   ]]
+
    local hidden = self.hiddenSize
    local output = self.outputSize
 
@@ -193,6 +245,14 @@ function Draw:buildDecoder()
 end
 
 function Draw:updateOutput(input)
+   --[[
+      REQUIRES:
+         input -> a table containing features and
+            ascending interval patch values
+      EFFECTS:
+         Feeds input through the clone at the correct time-step
+   ]]
+
    local input, patch_dim = unpack(input)
 
    local t = self.step
@@ -236,6 +296,14 @@ function Draw:updateOutput(input)
 end
 
 function Draw:backward(patch_dim)
+   --[[
+      REQUIRES:
+         patch_dim -> ascending patch intervals
+      EFFECTS:
+         Backpropogates input and grads through 
+         the decoder and encoder at the correct time step
+   ]]
+
    local t = self.step
    local enc = self.encoder.clones[t]
    local dec = self.decoder.clones[t]
@@ -288,6 +356,16 @@ function Draw:backward(patch_dim)
 end
 
 function Draw:generate(input, patch_dim, save, path)
+   --[[
+      REQUIRES:
+         input -> features tensor
+         patch_dim -> ascending patch intervals
+         save -> boolean or nil, whether to save generated tensors
+         path -> path to save images if true
+      EFFECTS:
+         Generates output given input, saves for each time-step
+   ]]
+
    save = save or false
    path = path or paths.cwd()
    local inputs, outputs
@@ -323,18 +401,37 @@ function Draw:generate(input, patch_dim, save, path)
 end
 
 function Draw:batchXhidden(backward)
+   --[[
+      REQUIRES:
+         backward -> boolean, creating for backward step
+      EFFECTS:
+         Creates a table of batch x hidden
+   ]]
+
    local idx = 0
    if backward then idx = self.seqSize end
    return {[idx] = torch.zeros(self.batchSize, self.hiddenSize)}
 end
 
 function Draw:batchXdims(backward)
+   --[[
+      REQUIRES:
+         backward -> boolean, creating for backward step
+      EFFECTS:
+         Creates a table of batch x image dimensions
+   ]]
+
    local idx = 0
    if backward then idx = self.seqSize end
    return {[idx] = torch.zeros(self.batchSize, self.A, self.B)}
 end
 
 function Draw:restart()
+   --[[
+      EFFECTS:
+         Reloads the model to initial values
+   ]]
+
    self.inputs = { enc = {}, dec = {} }
    self.outputs = { enc = {}, dec = {} }
 
@@ -378,6 +475,16 @@ function Draw:restart()
 end
 
 function Draw:apply(enc, dec, debug)
+   --[[
+      REQUIRES:
+         enc -> a lua string, encoder name
+         dec -> a lua string, decoder name
+         debug -> a boolean
+      EFFECTS:
+         Names the recurrent layer and
+         sets the debugging mode
+   ]]
+
    self:name(enc or '', dec or '')
    if debug ~= nil then
       self:debug(debug)
@@ -386,6 +493,15 @@ function Draw:apply(enc, dec, debug)
 end
 
 function Draw:name(enc, dec)
+   --[[
+      REQUIRES:
+         enc -> a lua string, encoder name
+         dec -> a lua string, decoder name
+      EFFECTS:
+         Names the recurrent layer and all its
+         potential clones      
+   ]]
+
    for i, clone in ipairs(self.encoder.clones) do
       local gmod = clone.modules[1]
       gmod.name = enc .. i
@@ -400,10 +516,23 @@ function Draw:name(enc, dec)
 end
 
 function Draw:log(str)
+   --[[
+      REQUIRES:
+         str -> a lua string
+      EFFECTS:
+         Prints str if self.verbose is true
+   ]]
+
    if self.verbose then print(str) end
 end
 
 function Draw:__tostring__()
+   --[[
+      EFFECTS:
+         Returns the string representation of
+         this class
+   ]]
+
    local template = 'rnn.Draw(%d -> %d -> (%d, %d) | N=%d)'
    return string.format(template, self.inputSize, self.hiddenSize,
       self.A, self.B, self.N)

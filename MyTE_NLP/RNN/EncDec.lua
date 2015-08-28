@@ -134,8 +134,7 @@ end
 function EncDec:restart()
    --[[
       EFFECTS:
-         Reloads the model to initial
-         values
+         Reloads the model to initial values
    ]]
 
    self.estop = false

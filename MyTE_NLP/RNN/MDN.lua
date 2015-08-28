@@ -1,6 +1,19 @@
 local MDN, parent = torch.class('rnn.MDN', 'rnn.Module')
 
 function MDN:__init(input, hidden, output, annotate)
+   --[[
+      REQUIRES:
+         input -> a number
+         hidden -> a number
+         output -> a number
+         annotate -> a boolean or nil, whether to annotate nodes
+            in the nngraph
+      EFFECTS:
+         Creates an instance of the rnn.MDN class for use
+         in building Mixture density networks
+         http://eprints.aston.ac.uk/373/1/NCRG_94_004.pdf
+   ]]
+
    parent.__init(self, input, hidden)
    self.nlabels = output
 
@@ -34,6 +47,13 @@ function MDN:__init(input, hidden, output, annotate)
 end
 
 function MDN:updateOutput(input)
+   --[[
+      REQUIRES:
+         input -> a table containing features and labels
+      EFFECTS:
+         Feeds input through the clone at the correct time-step
+   ]]
+
    self.input = input
    self.outputs = self.layer:forward(input)
    local output, alpha, mu, sigma = unpack(self.outputs)
@@ -41,6 +61,14 @@ function MDN:updateOutput(input)
 end
 
 function MDN:backward()
+   --[[
+      REQUIRES:
+         patch_dim -> ascending patch intervals
+      EFFECTS:
+         Backpropogates input and grads through 
+         the MDN
+   ]]
+
    local output, alpha, mu, sigma = unpack(self.outputs)
    local doutput = torch.ones(output:size())
    local dalpha = torch.zeros(alpha:size())
