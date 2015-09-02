@@ -154,8 +154,9 @@ function EncDec:__tostring__()
          self.layer
    ]]
 
-   local template = 'rnn.EncDec(%s,%s): %s'
-   return string.format(template, self.seqSize, self.dseqSize, self.layer)
+   local template = '%s(%s,%s): %s'
+   return string.format(template, torch.type(self),
+      self.seqSize, self.dseqSize, self.layer)
 end
 
 EncDec.encode = EncDec.updateOutput
