@@ -98,6 +98,6 @@ function GRU:accGradParameters(input, gradOutput, scale)
    ]]
 
    local layer = self.clones[self.step] or self.layer
-   layer:accGradParameters(self.input, gradOutput)
+   layer:accGradParameters(self.input, gradOutput, scale)
    self.prev_h:resizeAs(self.output):copy(self.output)
 end

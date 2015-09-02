@@ -184,6 +184,8 @@ end
 
 torch.sum = sum
 torch.Tensor.sum = function(self, other, axis)
-   local rv = sum(other, axis)
-   self:resizeAs(rv):copy(rv)
+   local s
+   if other then s = sum(other, axis)
+   else s = sum(self, axis) end
+   self:resizeAs(s):copy(s)
 end

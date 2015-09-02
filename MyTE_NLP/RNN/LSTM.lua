@@ -111,7 +111,7 @@ function LSTM:accGradParameters(input, gradOutput, scale)
    ]]
 
    local layer = self.clones[self.step] or self.layer
-   layer:accGradParameters(self.input, self.gradOutputTable)
+   layer:accGradParameters(self.input, self.gradOutputTable, scale)
    self.prev_c:resizeAs(self.next_c):copy(self.next_c)
    self.prev_h:resizeAs(self.output):copy(self.output)
    self.dprev_c:resizeAs(self.dnext_c):copy(self.dnext_c)
