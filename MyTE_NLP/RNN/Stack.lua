@@ -31,7 +31,6 @@ function Stack:__init(input, hidden, p, k, annotate)
    local x      = nn.Identity()()
    local prev_h = nn.Identity()()
    local prev_s = nn.Identity()()
-   local inputs = { x, prev_h, prev_s }
 
    local i2h    = nn.Linear(self.inputSize, self.hiddenSize)(x)
    local h2h    = nn.Linear(self.hiddenSize, self.hiddenSize)(prev_h)
@@ -61,7 +60,7 @@ function Stack:__init(input, hidden, p, k, annotate)
    local next_s = nn.JoinTable(1)(outputs)
 
    if annotate then nngraph.annotateNodes() end
-   self.layer = nn.gModule(inputs, {next_h, next_s})
+   self.layer = nn.gModule({x, prev_h, prev_s}, {next_h, next_s})
 end
 
 function Stack:updateOutput(input)
