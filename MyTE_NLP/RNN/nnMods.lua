@@ -93,11 +93,20 @@ Sequential.recycle = function(self, prevClone)
    local nextClone = self.clones[self.step]
    if nextClone ~= nil then
       for i, mod in ipairs(nextClone.modules) do
+         -- LSTM
          if mod.prev_c ~= nil then
             mod.prev_c:copy(prevClone.modules[i].prev_c)
          end
          if mod.dprev_c ~= nil then
             mod.dprev_c:copy(prevClone.modules[i].dprev_c)
+         end
+
+         -- Stack
+         if mod.prev_s ~= nil then
+            mod.prev_s:copy(prevClone.modules[i].prev_s)
+         end
+         if mod.dprev_s ~= nil then
+            mod.dprev_s:copy(prevClone.modules[i].dprev_s)
          end
       end
    end
@@ -198,27 +207,4 @@ Container.parameters = function(self)
       end
       return params, grads
    end
-end
-
--------- nn.ExpandAs
-
-local ExpandAs, _ = torch.class('nn.ExpandAs', 'nn.Module')
-
-function ExpandAs:__init()
-   Module.__init(self)
-end
-
-function ExpandAs:updateOutput(input)
-   local prev, other = unpack(input)
-   self.output:resizeAs(prev):copy(prev):expandAs(self.output, other)
-   return self.output
-end
-
-function ExpandAs:updateGradInput(input)
-   local prev, gradOutput = unpack(input)
-   self.gradInput
-      :resizeAs(prev)
-      :copy(prev)
-      :expandAs(self.gradInput, gradOutput)
-   return self.gradInput
 end

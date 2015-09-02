@@ -167,7 +167,7 @@ torch.Tensor.bdiv = function(self, t2)
    return self
 end
 
-local tts = torch.Tensor.sum
+--[[local tts = torch.Tensor.sum
 local function sum(t, axis)
    -- weird sum to allow negative axes
    axis = axis or 1
@@ -188,4 +188,5 @@ torch.Tensor.sum = function(self, other, axis)
    if other then s = sum(other, axis)
    else s = sum(self, axis) end
    self:resizeAs(s):copy(s)
-end
+   return self
+end]]

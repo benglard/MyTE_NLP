@@ -35,7 +35,7 @@ model:add(nn.Linear(n_hidden, n_output))
 local criterion = nn.MSECriterion()
 
 if opt.clone then
-   if not opt.attend then model:clone(seq_length) end
+   model:clone(seq_length)
    criterion:clone(seq_length)
 end
 
