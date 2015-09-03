@@ -45,10 +45,10 @@ function Stack:__init(input, hidden, p, k, annotate)
    local top = nn.Sigmoid()(nn.Linear(self.hiddenSize, 1)(next_h))
    local h2s0 = nn.CAddTable(){
       nn.CMulTable(){ push, top },
-      nn.CMulTable(){ pop, nn.Select(1, self.p - 1)(stack) }
+      nn.CMulTable(){ pop, nn.Select(1, 1)(stack) }
    }
    local outputs = { h2s0 }
-   for i = self.p - 1, 2, -1 do
+   for i = 2, self.p - 1 do
       local s_im1 = nn.Select(1, i - 1)(stack)
       local s_ip1 = nn.Select(1, i + 1)(stack)
       local h2si = nn.CAddTable(){

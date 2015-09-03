@@ -7,7 +7,7 @@ cmd:option('--debug', false, 'set nngraph debugging mode')
 cmd:option('--clone', false, 'clone over time steps')
 cmd:option('--kp', false, 'Keep params init from autobw')
 cmd:option('--n', 10000, 'n iterations')
-cmd:option('--exp', 2, 'exp of a^expb^exp sequence')
+cmd:option('--exp', 1, 'exp of a^expb^exp sequence')
 local opt = cmd:parse(arg or {})
 
 local n_input = 1
