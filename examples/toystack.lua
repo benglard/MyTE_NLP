@@ -3,6 +3,9 @@ require '../MyTE_NLP'
 
 local cmd = torch.CmdLine()
 cmd:option('--nstacks', 1, 'number of stacks')
+cmd:option('--verbose', false, 'print useful stuff')
+cmd:option('--rnn', false, 'use plain rnns')
+cmd:option('--layer', 'rec', 'rec | lstm | gru')
 cmd:option('--debug', false, 'set nngraph debugging mode')
 cmd:option('--clone', false, 'clone over time steps')
 cmd:option('--kp', false, 'Keep params init from autobw')
@@ -17,13 +20,27 @@ local batch_size = 15
 local seq_length = 5
 
 local model = nn.Sequential()
-model:add(rnn.Stack(n_input, n_hidden, n_hidden, 2, true):apply('stack1', opt.debug))
-   
-for i = 2, opt.nstacks do
-   local name = string.format('name%d', i)
-   model:add(
-      rnn.Stack(n_hidden, n_hidden, n_hidden, 2, true)
-      :apply(name, opt.debug))
+
+if opt.rnn then
+   local layer = nil
+   if     opt.layer == 'rec'  then layer = rnn.Recurrent
+   elseif opt.layer == 'lstm' then layer = rnn.LSTM
+   elseif opt.layer == 'gru'  then layer = rnn.GRU
+   else error('Invalid layer type') end
+
+   model:add(layer(n_input, n_hidden, 1, true):apply('rnn1', opt.debug))
+   for i = 2, opt.nstacks do
+      local name = string.format('name%d', i)
+      model:add(layer(n_hidden, n_hidden, 1, true):apply(name, opt.debug))
+   end
+else
+   model:add(rnn.Stack(n_input, n_hidden, n_hidden, 2, true):apply('stack1', opt.debug))
+   for i = 2, opt.nstacks do
+      local name = string.format('name%d', i)
+      model:add(
+         rnn.Stack(n_hidden, n_hidden, n_hidden, 2, true)
+         :apply(name, opt.debug))
+   end
 end
 
 model:add(nn.Linear(n_hidden, n_output))
@@ -65,14 +82,18 @@ local function fopt(x)
 
    for i = 1, batch_size do
       local i, t = unpack(next_batch())
-      --print(i, t)
       local input = torch.zeros(1, 1):add(i)
       local target = torch.zeros(1):add(t)
       local output = model:forward(input)
 
       local m, am = torch.exp(output[1]):max(1)
       am = am:squeeze()
-      if am == t then correct = correct + 1 end--else print(output[1]:exp()) end
+      if am == t then correct = correct + 1 end
+      if opt.verbose then
+         local temp = 'I: %d, T: %d, O: %d'
+         local str = string.format(temp, i, t, am)
+         print(str)
+      end
 
       local err = criterion:forward(output, target)
       local gradOutput = criterion:backward(output, target)
