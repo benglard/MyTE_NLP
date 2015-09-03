@@ -11,6 +11,7 @@ cmd:option('--clone', false, 'clone over time steps')
 cmd:option('--kp', false, 'Keep params init from autobw')
 cmd:option('--n', 10000, 'n iterations')
 cmd:option('--exp', 1, 'exp of a^expb^exp sequence')
+cmd:option('--endon', false, 'end on batch_size')
 local opt = cmd:parse(arg or {})
 
 local n_input = 1
@@ -102,7 +103,7 @@ local function fopt(x)
    end
 
    print(correct, correct == batch_size)
-   if correct == batch_size then os.exit() end
+   if correct == batch_size and opt.endon then os.exit() end
    return loss, grads
 end
 
