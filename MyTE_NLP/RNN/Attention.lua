@@ -57,14 +57,18 @@ function FFAttention:__init(hidden, batch, annotate)
          hidden -> number of hidden units
          batch -> size of batch
          annotate -> boolean, whether to annotate nngraph nodes
+      EFFECTS:
+         Creates an instance of the rnn.FFAttention class
+         for use in building recurrent neural network architectures
+         with soft attention using simple feed-forward neural nets.
    ]]
 
    Attention.__init(self, hidden, hidden, batch)
 
    local annotations = nn.Identity()()
    local prev_h = nn.Identity()()
-   local i2h    = nn.Linear(self.inputSize, self.hiddenSize)(annotations)
-   local h2h    = nn.Linear(self.hiddenSize, self.hiddenSize)(prev_h)
+   local i2h = nn.Linear(self.inputSize, self.hiddenSize)(annotations)
+   local h2h = nn.Linear(self.hiddenSize, self.hiddenSize)(prev_h)
    local scores = nn.Tanh()(nn.CAddTable(){ i2h, h2h })
    local weights = nn.SoftMax()(scores)
    local attend = nn.CMulTable(){ weights, annotations }
@@ -75,32 +79,29 @@ end
 
 local SequenceAttention, _ = torch.class('rnn.SequenceAttention', 'rnn.Attention')
 
-function SequenceAttention:__init(hidden, batch, seq, annotate)
+function SequenceAttention:__init(input, hidden, batch, annotate)
    --[[
       REQUIRES:
+         input -> number, size of input
          hidden -> number of hidden units
          batch -> size of batch
-         seq -> number, sequence length
          annotate -> boolean, whether to annotate nngraph nodes
+      EFFECTS:
+         Creates an instance of the rnn.SequenceAttention class
+         for use in building recurrent neural network architectures
+         with soft attention over sequences.
    ]]
 
-   Attention.__init(self, hidden, hidden, batch, seq)
+   Attention.__init(self, input, hidden, batch)
 
    local annotations = nn.Identity()()
    local prev_h = nn.Identity()()
-   
+   local i2h = nn.Linear(self.inputSize, self.hiddenSize)(annotations)
    local h2h = nn.Linear(self.hiddenSize, self.hiddenSize)(prev_h)
-   local attends = {}
+   local scores = nn.Tanh()(nn.CAddTable(){ i2h, h2h })
+   local weights = nn.SoftMax()(scores)
+   local attend = nn.CMulTable(){ weights, annotations }
 
-   for j = 1, self.seqSize do
-      local h_j = nn.Select(1, j)(annotations)
-      local i2h = nn.Linear(self.inputSize, self.hiddenSize)(h_j)
-      local scores = nn.Tanh()(nn.CAddTable(){ i2h, h2h })
-      local weights = nn.SoftMax()(scores)
-      attends[j] = nn.CMulTable(){ weights, annotations }
-   end
-
-   local attend = nn.Sum(2)(attends)
    if annotate then nngraph.annotateNodes() end
    self.layer = nn.gModule({annotations, prev_h}, {attend})
 end

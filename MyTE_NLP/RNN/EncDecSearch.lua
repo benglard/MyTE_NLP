@@ -35,16 +35,27 @@ function EncDecSearch:updateOutput(input)
          self.step.decoder = ds + 1
       end
 
-      local prev_enc = self.encoder.clones[ds]
-      local nmods = #prev_enc.modules
-      local prev_s = prev_enc.modules[nmods].prev_h
-      return dec:forward{ input, prev_s }
+      local prev_dec = self.decoder.clones[ds - 1]
+      local h_t
+      if prev_dec == nil then
+         h_t = torch.zeros(self.batchSize, self.hiddenSize)
+      else
+         h_t = prev_dec.modules[2].prev_h
+      end
+
+      local attended = dec.modules[1]:forward{ self.prev, h_t }
+      dec.modules[2].prev_h:copy(attended)
+      local output = input
+      for i = 2, #dec.modules do
+         output = dec.modules[i]:forward(output)
+      end
+      return output
    end
 end
 
 local BiEncDecSearch, BiEncDec = torch.class('rnn.BiEncDecSearch', 'rnn.BiEncDec')
 
-function BiEncDecSearch:updateOutput()
+function BiEncDecSearch:updateOutput(input)
    --[[
       REQUIRES:
          input -> a torch Tensor
@@ -63,15 +74,15 @@ function BiEncDecSearch:updateOutput()
       input = torch.Tensor(self.inputSize):typeAs(self.prev):fill(self.vocabSize)
       self.inputs[es]:copy(input)
       self.estop = true
-      local rv = enc:forward(input)
-      self.annotations[{es, {}, {1, self.hiddenSize}}]
+      local erv = enc:forward(input)
+
+      local hs = self.hiddenSize
+      self.annotations[{es, {}, {1, hs}}]
          :copy(enc.modules[self.nencmods].prev_h)
 
-      self.h_t[{{1, self.hiddenSize}}]:copy(self.prev)
-
       -- Build backward encodings automagically
-      for i = es, 1, -1 do
-         local input = self.inputs[es]
+      for i = es, 2, -1 do
+         local input = self.inputs[es]:resize(self.inputSize)
          local enc_i = self.encoder.clones[i]
          local output = enc_i:forward(input)
          self.annotations[{es, {}, {self.hiddenSize + 1, self.hiddenSize * 2}}]
@@ -79,7 +90,12 @@ function BiEncDecSearch:updateOutput()
          self.prev = self.prev:typeAs(output):resizeAs(output):copy(output)
       end
 
-      self.h_t[{{self.hiddenSize + 1, 2 * self.hiddenSize}}]:copy(self.prev)
+      local input_1 = self.inputs[1]:clone():resize(self.inputSize)
+      local drv = self.encoder.clones[1]:forward(input_1)
+
+      local rv = torch.zeros(2 * hs)
+      rv[{{1, hs}}]:copy(erv)
+      rv[{{hs + 1, 2 * hs}}]:copy(drv)
       return rv
    elseif stop and (self.estop or ds == self.dseqSize) then
       self.estop = false
@@ -98,7 +114,21 @@ function BiEncDecSearch:updateOutput()
          self.step.decoder = ds + 1
       end
 
-      return dec:forward{ self.annotations, self.h_t }
+      local prev_dec = self.decoder.clones[ds - 1]
+      local h_t
+      if prev_dec == nil then
+         h_t = torch.zeros(self.batchSize, self.hiddenSize * 2)
+      else
+         h_t = prev_dec.modules[2].prev_h
+      end
+
+      local attended = dec.modules[1]:forward{ self.annotations[ds], h_t }
+      dec.modules[2].prev_h:copy(attended)
+      local output = input
+      for i = 2, #dec.modules do
+         output = dec.modules[i]:forward(output)
+      end
+      return output
    end
 end
 
@@ -120,5 +150,4 @@ function BiEncDec:restart()
    self.nencmods = #self.encoder.clones[1].modules
    self.annotations = torch.zeros(self.seqSize,
       self.batchSize, self.hiddenSize * 2)
-   self.h_t = torch.zeros(2 * self.hiddenSize)
 end
