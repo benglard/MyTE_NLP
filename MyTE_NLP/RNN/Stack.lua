@@ -36,13 +36,13 @@ function Stack:__init(input, hidden, p, k, annotate)
    local h2h    = nn.Linear(self.hiddenSize, self.hiddenSize)(prev_h)
    local s2h    = nn.Linear(self.hiddenSize, self.p)(prev_s)
    local next_h = nn.Sigmoid()(nn.CAddTable(){ i2h, h2h, s2h })
-   local h2a    = nn.SoftMax()(nn.LinearNoBias(self.hiddenSize, 2)(next_h))
+   local h2a    = nn.SoftMax()(nn.Linear(self.hiddenSize, 2)(next_h))
 
    local push  = nn.Select(2, 1)(h2a)
    local pop   = nn.Select(2, 2)(h2a)
    local stack = nn.Reshape(self.p, 1)(prev_s)
 
-   local top = nn.Sigmoid()(nn.LinearNoBias(self.hiddenSize, 1)(next_h))
+   local top = nn.Sigmoid()(nn.Linear(self.hiddenSize, 1)(next_h))
    local h2s0 = nn.CAddTable(){
       nn.CMulTable(){ push, top },
       nn.CMulTable(){ pop, nn.Select(1, self.p - 1)(stack) }
