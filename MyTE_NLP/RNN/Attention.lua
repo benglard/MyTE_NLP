@@ -1,28 +1,6 @@
-local FFAttention, parent = torch.class('rnn.FFAttention', 'rnn.Module')
+local Attention, Module = torch.class('rnn.Attention', 'rnn.Module')
 
-function FFAttention:__init(hidden, batch, annotate)
-   --[[
-      REQUIRES:
-         hidden -> number of hidden units
-         batch -> size of batch
-         annotate -> boolean, whether to annotate nngraph nodes
-   ]]
-
-   parent.__init(self, hidden, hidden, batch)
-
-   local annotations = nn.Identity()()
-   local prev_h = nn.Identity()()
-   local i2h    = nn.Linear(self.inputSize, self.hiddenSize)(annotations)
-   local h2h    = nn.Linear(self.hiddenSize, self.hiddenSize)(prev_h)
-   local scores = nn.Tanh()(nn.CAddTable(){ i2h, h2h })
-   local weights = nn.SoftMax()(scores)
-   local attend = nn.CMulTable(){ weights, annotations }
-
-   if annotate then nngraph.annotateNodes() end
-   self.layer = nn.gModule({annotations, prev_h}, {attend})
-end
-
-function FFAttention:updateOutput(input)   
+function Attention:updateOutput(input)   
    --[[
       REQUIRES:
          input -> table of annotations and activations
@@ -38,7 +16,7 @@ function FFAttention:updateOutput(input)
    return self.output
 end
 
-function FFAttention:updateGradInput(input, gradOutput)
+function Attention:updateGradInput(input, gradOutput)
    --[[
       REQUIRES:
          input -> a torch Tensor
@@ -55,7 +33,7 @@ function FFAttention:updateGradInput(input, gradOutput)
    return self.gradInput
 end
 
-function FFAttention:accGradParameters(input, gradOutput, scale)
+function Attention:accGradParameters(input, gradOutput, scale)
    --[[
       REQUIRES:
          input -> a torch Tensor or table
@@ -71,7 +49,63 @@ function FFAttention:accGradParameters(input, gradOutput, scale)
    layer:accGradParameters(self.input, gradOutput, scale)
 end
 
-local RecurrentAttention, _ = torch.class('rnn.RecurrentAttention', 'rnn.Module')
+local FFAttention, _ = torch.class('rnn.FFAttention', 'rnn.Attention')
+
+function FFAttention:__init(hidden, batch, annotate)
+   --[[
+      REQUIRES:
+         hidden -> number of hidden units
+         batch -> size of batch
+         annotate -> boolean, whether to annotate nngraph nodes
+   ]]
+
+   Attention.__init(self, hidden, hidden, batch)
+
+   local annotations = nn.Identity()()
+   local prev_h = nn.Identity()()
+   local i2h    = nn.Linear(self.inputSize, self.hiddenSize)(annotations)
+   local h2h    = nn.Linear(self.hiddenSize, self.hiddenSize)(prev_h)
+   local scores = nn.Tanh()(nn.CAddTable(){ i2h, h2h })
+   local weights = nn.SoftMax()(scores)
+   local attend = nn.CMulTable(){ weights, annotations }
+
+   if annotate then nngraph.annotateNodes() end
+   self.layer = nn.gModule({annotations, prev_h}, {attend})
+end
+
+local SequenceAttention, _ = torch.class('rnn.SequenceAttention', 'rnn.Attention')
+
+function SequenceAttention:__init(hidden, batch, seq, annotate)
+   --[[
+      REQUIRES:
+         hidden -> number of hidden units
+         batch -> size of batch
+         seq -> number, sequence length
+         annotate -> boolean, whether to annotate nngraph nodes
+   ]]
+
+   Attention.__init(self, hidden, hidden, batch, seq)
+
+   local annotations = nn.Identity()()
+   local prev_h = nn.Identity()()
+   
+   local h2h = nn.Linear(self.hiddenSize, self.hiddenSize)(prev_h)
+   local attends = {}
+
+   for j = 1, self.seqSize do
+      local h_j = nn.Select(1, j)(annotations)
+      local i2h = nn.Linear(self.inputSize, self.hiddenSize)(h_j)
+      local scores = nn.Tanh()(nn.CAddTable(){ i2h, h2h })
+      local weights = nn.SoftMax()(scores)
+      attends[j] = nn.CMulTable(){ weights, annotations }
+   end
+
+   local attend = nn.Sum(2)(attends)
+   if annotate then nngraph.annotateNodes() end
+   self.layer = nn.gModule({annotations, prev_h}, {attend})
+end
+
+local RecurrentAttention, _ = torch.class('rnn.RecurrentAttention', 'rnn.Attention')
 
 function RecurrentAttention:__init(recmod, attmod, seq)
    --[[
@@ -85,7 +119,7 @@ function RecurrentAttention:__init(recmod, attmod, seq)
          with soft attention.
    ]]
 
-   parent.__init(self,
+   Attention.__init(self,
       recmod.inputSize,
       recmod.hiddenSize,
       recmod.batchSize, seq)

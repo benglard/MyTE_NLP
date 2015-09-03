@@ -11,7 +11,7 @@ function Recurrent:__init(input, hidden, batch, annotate)
       EFFECTS:
          Creates an instance of the rnn.Recurrent class
          for use in building neural network architectures
-         with recurrent layers. 
+         with recurrent layers.
    ]]
 
    parent.__init(self, input, hidden, batch)
