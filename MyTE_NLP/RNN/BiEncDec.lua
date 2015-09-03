@@ -19,22 +19,29 @@ function BiEncDec:updateOutput(input)
       input = torch.Tensor(self.inputSize):typeAs(self.prev):fill(self.vocabSize)
       self.inputs[es]:copy(input)
       self.estop = true
-      local rv = enc:forward(input)
+      local erv = enc:forward(input)
 
-      local hs = self.decoder.clones[1].modules[1].hiddenSize
+      local hs = self.decoder.clones[1].modules[1].hiddenSize / 2
       local h_t = torch.zeros(2 * hs)
       h_t[{{1, hs}}]:copy(self.prev)
 
       -- Build backward encodings automagically
-      for i = es, 1, -1 do
-         local input = self.inputs[es]
+      for i = es, 2, -1 do
+         local input = self.inputs[es]:clone():resize(self.inputSize)
          local output = self.encoder.clones[i]:forward(input)
          self.prev = self.prev:typeAs(output):resizeAs(output):copy(output)
       end
       h_t[{{hs + 1, 2 * hs}}]:copy(self.prev)
 
-      -- copy hidden state to decoder
+      -- copy h_f||h_b hidden state to decoder
       self.decoder.clones[1].modules[1].prev_h:copy(h_t)
+
+      local input_1 = self.inputs[1]:clone():resize(self.inputSize)
+      local drv = self.encoder.clones[1]:forward(input_1)
+
+      local rv = torch.zeros(2 * hs)
+      rv[{{1, hs}}]:copy(erv)
+      rv[{{hs + 1, 2 * hs}}]:copy(drv)
       return rv
    elseif stop and (self.estop or ds == self.dseqSize) then
       self.estop = false
