@@ -67,6 +67,8 @@ function BiEncDecSearch:updateOutput()
       self.annotations[{es, {}, {1, self.hiddenSize}}]
          :copy(enc.modules[self.nencmods].prev_h)
 
+      self.h_t[{{1, self.hiddenSize}}]:copy(self.prev)
+
       -- Build backward encodings automagically
       for i = es, 1, -1 do
          local input = self.inputs[es]
@@ -76,6 +78,8 @@ function BiEncDecSearch:updateOutput()
             :copy(enc_i.modules[self.nencmods].prev_h)
          self.prev = self.prev:typeAs(output):resizeAs(output):copy(output)
       end
+
+      self.h_t[{{self.hiddenSize + 1, 2 * self.hiddenSize}}]:copy(self.prev)
       return rv
    elseif stop and (self.estop or ds == self.dseqSize) then
       self.estop = false
@@ -94,8 +98,7 @@ function BiEncDecSearch:updateOutput()
          self.step.decoder = ds + 1
       end
 
-      local prev_enc = self.encoder.clones[ds]
-      return dec:forward{ input, self.annotations }
+      return dec:forward{ self.annotations, self.h_t }
    end
 end
 
@@ -117,4 +120,5 @@ function BiEncDec:restart()
    self.nencmods = #self.encoder.clones[1].modules
    self.annotations = torch.zeros(self.seqSize,
       self.batchSize, self.hiddenSize * 2)
+   self.h_t = torch.zeros(2 * self.hiddenSize)
 end
