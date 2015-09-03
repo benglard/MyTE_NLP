@@ -35,15 +35,19 @@ function EncDecSearch:updateOutput(input)
          self.step.decoder = ds + 1
       end
 
+      local prev_enc = self.encoder.clones[ds]
+      local nmods = #prev_enc.modules
+      local h_j = prev_enc.modules[nmods].prev_h
+
       local prev_dec = self.decoder.clones[ds - 1]
-      local h_t
+      local prev_s
       if prev_dec == nil then
-         h_t = torch.zeros(self.batchSize, self.hiddenSize)
+         prev_s = torch.zeros(self.batchSize, self.hiddenSize)
       else
-         h_t = prev_dec.modules[2].prev_h
+         prev_s = prev_dec.modules[2].prev_h
       end
 
-      local attended = dec.modules[1]:forward{ self.prev, h_t }
+      local attended = dec.modules[1]:forward{ h_j, prev_s }
       dec.modules[2].prev_h:copy(attended)
       local output = input
       for i = 2, #dec.modules do
@@ -51,6 +55,17 @@ function EncDecSearch:updateOutput(input)
       end
       return output
    end
+end
+
+function EncDecSearch:state()
+   --[[
+      EFFECTS:
+         Returns hidden state of first layer
+         of decoder
+   ]]
+
+   local ds = self.step.decoder - 1
+   return self.decoder.clones[ds].modules[2].output:clone()
 end
 
 local BiEncDecSearch, BiEncDec = torch.class('rnn.BiEncDecSearch', 'rnn.BiEncDec')
@@ -150,4 +165,15 @@ function BiEncDec:restart()
    self.nencmods = #self.encoder.clones[1].modules
    self.annotations = torch.zeros(self.seqSize,
       self.batchSize, self.hiddenSize * 2)
+end
+
+function BiEncDecSearch:state()
+   --[[
+      EFFECTS:
+         Returns hidden state of first layer
+         of decoder
+   ]]
+
+   local ds = self.step.decoder - 1
+   return self.decoder.clones[ds].modules[2].output:clone()
 end
