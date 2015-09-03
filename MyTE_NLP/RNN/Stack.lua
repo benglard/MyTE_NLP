@@ -47,15 +47,18 @@ function Stack:__init(input, hidden, p, k, annotate)
       nn.CMulTable(){ push, top },
       nn.CMulTable(){ pop, nn.Select(1, 1)(stack) }
    }
+
+   local s_i = {}
+   for i = 1, self.p do
+      s_i[i] = nn.Select(1, i)(stack)
+   end
+
    local outputs = { h2s0 }
    for i = 2, self.p - 1 do
-      local s_im1 = nn.Select(1, i - 1)(stack)
-      local s_ip1 = nn.Select(1, i + 1)(stack)
-      local h2si = nn.CAddTable(){
-         nn.CMulTable(){ push, s_im1 },
-         nn.CMulTable(){ pop, s_ip1 }
+      outputs[i] = nn.CAddTable(){
+         nn.CMulTable(){ push, s_i[i - 1] },
+         nn.CMulTable(){ pop, s_i[i + 1] }
       }
-      table.insert(outputs, h2si)
    end
    local next_s = nn.JoinTable(1)(outputs)
 
