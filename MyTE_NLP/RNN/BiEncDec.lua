@@ -1,4 +1,4 @@
-local BiEncDec, Module = torch.class('rnn.BiEncDec', 'rnn.Module')
+local BiEncDec, Module = torch.class('rnn.BiEncDec', 'rnn.EncDec')
 
 function BiEncDec:updateOutput(input)
    --[[
