@@ -16,7 +16,7 @@ function Stack:__init(input, hidden, p, k, nstacks, discretize, useno, annotate)
       EFFECTS:
          Creates an instance of the rnn.Recurrent class
          for use in building neural network architectures
-         with recurrent layers.         
+         with recurrent layers.
    ]]
 
    parent.__init(self, input, hidden)
@@ -28,16 +28,12 @@ function Stack:__init(input, hidden, p, k, nstacks, discretize, useno, annotate)
    self.dprev_h = torch.zeros(self.batchSize, self.hiddenSize)
    self.dnext_h = torch.zeros(self.batchSize, self.hiddenSize)
 
-   --[[self.stacks = {}
-   for i = 1, self.nstacks do
-      local stack = {
-         prev_s = torch.zeros(self.p):add(-1), -- empty
-         next_s = torch.zeros(self.p),
-         dprev_s = torch.zeros(self.p),
-         dnext_s = torch.zeros(self.p)
-      }
-      self.stacks[i] = stack
-   end]]
+   --[[
+   self.prev_s = torch.zeros(self.nstacks, self.p):add(-1)
+   self.next_s = torch.zeros(self.nstacks, self.p)
+   self.dprev_s = torch.zeros(self.nstacks, self.p)
+   self.dnext_s = torch.zeros(self.nstacks, self.p)
+   ]]
 
    self.prev_s = torch.zeros(self.p):add(-1) -- empty
    self.next_s = torch.zeros(self.p)
