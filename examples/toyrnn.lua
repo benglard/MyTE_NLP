@@ -3,7 +3,6 @@ require '../MyTE_NLP'
 
 local cmd = torch.CmdLine()
 cmd:option('--layer', 'rec', 'rec | lstm | gru')
-cmd:option('--attend', false, 'Use recurrent attention')
 cmd:option('--debug', false, 'set nngraph debugging mode')
 cmd:option('--clone', false, 'clone over time steps')
 cmd:option('--kp', false, 'Keep params init from autobw')
@@ -22,15 +21,7 @@ local batch_size = 15
 local seq_length = 5
 
 local model = nn.Sequential()
-if opt.attend then
-   model:add(rnn.RecurrentAttention(
-      layer(n_input, n_hidden, batch_size, true):apply('rnn', opt.debug),
-      rnn.FFAttention(n_hidden, n_hidden, batch_size, true):apply('att', opt.debug),
-      seq_length
-   ))
-else
-   model:add(layer(n_input, n_hidden, batch_size, true):apply('rnn', opt.debug))
-end
+model:add(layer(n_input, n_hidden, batch_size, true):apply('rnn', opt.debug))
 model:add(nn.Linear(n_hidden, n_output))
 local criterion = nn.MSECriterion()
 

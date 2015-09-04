@@ -96,23 +96,29 @@ function SequenceAttention:__init(input, hidden, batch, annotate)
 
    local annotations = nn.Identity()()
    local prev_h = nn.Identity()()
-   local i2h = nn.Linear(self.inputSize, self.hiddenSize)(annotations)
    local h2h = nn.Linear(self.hiddenSize, self.hiddenSize)(prev_h)
-   local scores = nn.Tanh()(nn.CAddTable(){ i2h, h2h })
-   local weights = nn.SoftMax()(scores)
-   local attend = nn.CMulTable(){ weights, annotations }
+   local attends = {}
 
+   for j = 1, self.seqSize do
+      local h_j = nn.Select(1, j)(annotations)
+      local i2h = nn.Linear(self.inputSize, self.hiddenSize)(h_j)
+      local scores = nn.Tanh()(nn.CAddTable(){ i2h, h2h })
+      local weights = nn.SoftMax()(scores)
+      attends[j] = nn.CMulTable(){ weights, annotations }
+   end
+
+   local attend = nn.Sum(2)(attends)
    if annotate then nngraph.annotateNodes() end
    self.layer = nn.gModule({annotations, prev_h}, {attend})
 end
 
 local RecurrentAttention, _ = torch.class('rnn.RecurrentAttention', 'rnn.Attention')
 
-function RecurrentAttention:__init(recmod, attmod, seq)
+function RecurrentAttention:__init(attmod, recmod, seq)
    --[[
       REQUIRES:
-         recmod -> recurrent module
          attmod -> attention module
+         recmod -> recurrent module
          seq -> sequence size
       EFFECTS:
          Creates an instance of the rnn.RecurrentAttention class
@@ -121,18 +127,18 @@ function RecurrentAttention:__init(recmod, attmod, seq)
    ]]
 
    Attention.__init(self,
-      recmod.inputSize,
+      attmod.inputSize,
       recmod.hiddenSize,
-      recmod.batchSize, seq)
+      attmod.batchSize, seq)
 
-   self.rmod = nn.Sequential():add(recmod):clone(self.seqSize)
    self.amod = nn.Sequential():add(attmod):clone(self.seqSize)
+   self.rmod = nn.Sequential():add(recmod):clone(self.seqSize)
 
    self.layer = nn.Sequential()
       :add(self.rmod)
       :add(self.amod)
 
-   self.step = 1
+   self.fstep = 1
 end
 
 function RecurrentAttention:updateOutput(input)
@@ -144,11 +150,22 @@ function RecurrentAttention:updateOutput(input)
          or it's clone at the correct time-step
    ]]
 
-   local rmod = self.rmod.clones[self.step]
-   local rout = rmod:updateOutput(input)
-   local amod = self.amod.clones[self.step]
-   local aout = amod:updateOutput{ rout, rmod.modules[1].prev_h }
-   self.output:resizeAs(aout):copy(aout)
+   local step = self.fstep
+   local prev_s
+   local prev_rmod = self.rmod.clones[step - 1]
+   if prev_rmod == nil then
+      prev_s = torch.zeros(self.batchSize, self.inputSize)
+   else
+      prev_s = prev_rmod.modules[1].prev_h
+   end
+
+   local amod = self.amod.clones[step]
+   local aout = amod:updateOutput{ input, prev_s }
+
+   local rmod = self.rmod.clones[step]
+   local rout = rmod:updateOutput(aout)
+
+   self.output:resizeAs(rout):copy(rout)
    return self.output
 end
 
@@ -163,11 +180,15 @@ function RecurrentAttention:updateGradInput(input, gradOutput)
          correct time-step
    ]]
 
-   local amod = self.amod.clones[self.step]
-   local grad = amod:updateGradInput(nil, gradOutput)
+   local step = self.fstep
+
+   local rmod = self.rmod.clones[step]
+   local grad = rmod:updateGradInput(nil, gradOutput)
    self.grad = grad
-   local rmod = self.rmod.clones[self.step]
-   grad = rmod:updateGradInput(nil, grad)
+
+   local amod = self.amod.clones[step]
+   grad = amod:updateGradInput(nil, grad)
+
    self.gradInput:resizeAs(grad):copy(grad)
    return self.gradInput
 end
@@ -184,15 +205,17 @@ function RecurrentAttention:accGradParameters(input, gradOutput, scale)
          correct time-step
    ]]
 
-   local amod = self.amod.clones[self.step]
-   amod:accGradParameters(nil, gradOutput, scale)
-   local rmod = self.rmod.clones[self.step]
-   rmod:updateGradInput(nil, self.grad, scale)
+   local step = self.fstep
 
-   if self.step == self.seqSize then
-      self.step = 1
+   local rmod = self.rmod.clones[step]
+   rmod:accGradParameters(nil, gradOutput, scale)
+   local amod = self.amod.clones[step]
+   amod:updateGradInput(nil, self.grad, scale)
+
+   if step == self.seqSize then
+      self.fstep = 1
    else
-      self.step = self.step + 1
+      self.fstep = step + 1
    end
 end
 
@@ -202,6 +225,20 @@ function RecurrentAttention:__tostring__()
          Returns the string representation of self.layer
    ]]
 
-   local template = 'rnn.RecurrentAttention(): %s'
-   return string.format(template, self.layer)
+   local tab = '  '
+   local line = '\n'
+   local next = ' -> '
+   local str = string.format('rnn.RecurrentAttention(%d) {%s%s[input',
+      #self.amod.clones, line, tab)
+   
+   str = string.format('%s%s(1)%s(2)%soutput]', str, next, next, next)
+
+   local mod 
+   mod = tostring(self.amod.clones[1].modules[1]):gsub(line, line .. tab)
+   str = string.format('%s%s%s(1): %s', str, line, tab, mod)
+   mod = tostring(self.rmod.clones[1].modules[1]):gsub(line, line .. tab)
+   str = string.format('%s%s%s(2): %s', str, line, tab, mod)
+   str = str .. line .. '}'
+
+   return str
 end

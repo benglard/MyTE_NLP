@@ -146,10 +146,11 @@ Sequential.backward = function(self, input, gradOutput, scale)
       self:recycle(clone)
    end
 
+   local nc = #self.clones
    for i = 1, nmods do
       local mod = clone.modules[i]
       mod.step = mod.step + 1
-      if mod.step > #self.clones then
+      if mod.step > nc then
          mod.step = 1
       end
    end
