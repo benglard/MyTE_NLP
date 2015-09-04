@@ -38,14 +38,8 @@ if opt.rnn then
       model:add(layer(n_hidden, n_hidden, 1, true):apply(name, opt.debug))
    end
 else
-   model:add(rnn.Stack(n_input, n_hidden, n_hidden, 2, 1,
+   model:add(rnn.Stack(n_input, n_hidden, n_hidden, 2, opt.nstacks,
       opt.discrete, opt.noop, true):apply('stack1', opt.debug))
-   for i = 2, opt.nstacks do
-      local name = string.format('stack%d', i)
-      model:add(
-         rnn.Stack(n_hidden, n_hidden, n_hidden, 2, true)
-         :apply(name, opt.debug))
-   end
 end
 
 model:add(nn.Linear(n_hidden, n_output))

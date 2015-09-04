@@ -28,32 +28,14 @@ function Stack:__init(input, hidden, p, k, nstacks, discretize, useno, annotate)
    self.dprev_h = torch.zeros(self.batchSize, self.hiddenSize)
    self.dnext_h = torch.zeros(self.batchSize, self.hiddenSize)
 
-   --[[
    self.prev_s = torch.zeros(self.nstacks, self.p):add(-1)
    self.next_s = torch.zeros(self.nstacks, self.p)
    self.dprev_s = torch.zeros(self.nstacks, self.p)
    self.dnext_s = torch.zeros(self.nstacks, self.p)
-   ]]
-
-   self.prev_s = torch.zeros(self.p):add(-1) -- empty
-   self.next_s = torch.zeros(self.p)
-   self.dprev_s = torch.zeros(self.p)
-   self.dnext_s = torch.zeros(self.p)
 
    local x      = nn.Identity()()
    local prev_h = nn.Identity()()
    local prev_s = nn.Identity()()
-
-   local stack = nn.Reshape(self.p, 1)(prev_s)
-   local s_i = {}
-   local s_k = {}
-   for i = 1, self.p do
-      local elem = nn.Select(1, i)(stack)
-      s_i[i] = elem
-      if i <= self.k then
-         s_k[i] = elem
-      end
-   end
 
    local nactions = 2
    if useno then nactions = 3 end
@@ -61,39 +43,63 @@ function Stack:__init(input, hidden, p, k, nstacks, discretize, useno, annotate)
 
    local i2h = nn.Linear(self.inputSize, self.hiddenSize)(x)
    local h2h = nn.Linear(self.hiddenSize, self.hiddenSize)(prev_h)
-   local skt = nn.JoinTable(1)(s_k)
-   local s2h = nn.Linear(self.k, self.hiddenSize)(skt)
-   local next_h = nn.Sigmoid()(nn.CAddTable(){ i2h, h2h, s2h })
-   local h2a = nn.SoftMax()(nn.Linear(self.hiddenSize, nactions)(next_h))
-   local push = nn.Select(2, 1)(h2a)
-   local pop = nn.Select(2, 2)(h2a)
 
-   local top = nn.Sigmoid()(nn.Linear(self.hiddenSize, 1)(next_h))
-   local next_s0_t = {
-      nn.CMulTable(){ push, top },
-      nn.CMulTable(){ pop, s_i[2] }
-   }
-   if useno then
-      local noop = nn.Select(2, 3)(h2a)
-      next_s0_t[3] = nn.CMulTable(){ noop, s_i[1] }
+   local stacks = nn.SplitTable(1)(prev_s)
+   local next_h_inputs = { i2h, h2h }
+
+   for i = 1, self.nstacks do
+      local stack = nn.Reshape(self.p, 1)(nn.SelectTable(i)(stacks))
+      local s_k = {}
+      for i = 1, self.k do
+         s_k[i] = nn.Select(1, i)(stack)
+      end
+      local s2h = nn.Linear(self.k, self.hiddenSize)(nn.JoinTable(1)(s_k))
+      next_h_inputs[i + 2] = s2h
    end
-   local next_s0 = nn.CAddTable()(next_s0_t)
 
-   local outputs = { next_s0 }
-   for i = 2, self.p - 1 do
-      outputs[i] = nn.CAddTable(){
-         nn.CMulTable(){ push, s_i[i - 1] },
-         nn.CMulTable(){ pop, s_i[i + 1] }
+   local next_h = nn.Sigmoid()(nn.CAddTable()(next_h_inputs))
+   local outputs = { next_h }
+
+   for i = 1, self.nstacks do
+      local stack = nn.Reshape(self.p, 1)(nn.SelectTable(i)(stacks))
+      local s_i = {}
+      for i = 1, self.p do
+         s_i[i] = nn.Select(1, i)(stack)
+      end
+
+      local h2a = nn.SoftMax()(nn.Linear(self.hiddenSize, nactions)(next_h))
+      local push = nn.Select(2, 1)(h2a)
+      local pop = nn.Select(2, 2)(h2a)
+
+      local top = nn.Sigmoid()(nn.Linear(self.hiddenSize, 1)(next_h))
+      local next_s0_t = {
+         nn.CMulTable(){ push, top },
+         nn.CMulTable(){ pop, s_i[2] }
       }
-   end
-   local next_s = nn.JoinTable(1)(outputs)
+      if useno then
+         local noop = nn.Select(2, 3)(h2a)
+         next_s0_t[3] = nn.CMulTable(){ noop, s_i[1] }
+      end
+      local next_s0 = nn.CAddTable()(next_s0_t)
 
-   if discretize then
-      next_s = nn.Round()(next_s)
+      local elements = { next_s0 }
+      for i = 2, self.p - 1 do
+         elements[i] = nn.CAddTable(){
+            nn.CMulTable(){ push, s_i[i - 1] },
+            nn.CMulTable(){ pop, s_i[i + 1] }
+         }
+      end
+      local next_s = nn.JoinTable(1)(elements)
+
+      if discretize then
+         next_s = nn.Round()(next_s)
+      end
+
+      outputs[i + 1] = next_s
    end
 
    if annotate then nngraph.annotateNodes() end
-   self.layer = nn.gModule({x, prev_h, prev_s}, {next_h, next_s})
+   self.layer = nn.gModule({x, prev_h, prev_s}, outputs)
 end
 
 function Stack:updateOutput(input)
@@ -112,9 +118,13 @@ function Stack:updateOutput(input)
    end
    
    local layer = self.clones[self.step] or self.layer
-   local next_h, next_s = unpack(layer:updateOutput(self.input))
+   local outputs = layer:updateOutput(self.input)
+   local next_h = outputs[1]
    self.output:resizeAs(next_h):copy(next_h)
-   self.next_s[{{1, self.p - 1}}]:copy(next_s)
+   for i = 2, #outputs do
+      local next_s = outputs[i]
+      self.next_s[{i - 1, {1, self.p - 1}}]:copy(next_s)
+   end
    return self.output
 end
 
@@ -130,7 +140,11 @@ function Stack:updateGradInput(input, gradOutput)
    ]]
 
    local layer = self.clones[self.step] or self.layer
-   self.gradOutputTable = { gradOutput, self.dprev_s[{{1, self.p - 1}}] }
+   self.gradOutputTable = { gradOutput }
+   for i = 1, self.nstacks do
+      self.gradOutputTable[i + 1] = self.dprev_s[{i, {1, self.p - 1}}]
+   end
+
    local gradInputs = layer:updateGradInput(self.input, self.gradOutputTable)
    local gix, gih, gis = unpack(gradInputs)
    self.gradInput:resizeAs(gix):copy(gix)

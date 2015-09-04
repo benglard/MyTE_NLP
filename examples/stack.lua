@@ -1,7 +1,7 @@
 require '../MyTE_NLP'
 
 local model = nn.Sequential()
-   :add(rnn.Stack(4, 20, nil, nil, nil,
+   :add(rnn.Stack(4, 20, nil, nil, 2,
       false, false, true):apply('rnnstack', true))
    :add(nn.Linear(20, 1))
    :add(nn.LogSoftMax())
