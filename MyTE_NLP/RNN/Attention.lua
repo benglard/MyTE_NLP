@@ -67,9 +67,9 @@ function FFAttention:__init(hidden, batch, annotate)
 
    local annotations = nn.Identity()()
    local prev_h = nn.Identity()()
-   local i2h = nn.Linear(self.inputSize, self.hiddenSize)(annotations)
+   local a2h = nn.Linear(self.hiddenSize, self.hiddenSize)(annotations)
    local h2h = nn.Linear(self.hiddenSize, self.hiddenSize)(prev_h)
-   local scores = nn.Tanh()(nn.CAddTable(){ i2h, h2h })
+   local scores = nn.Tanh()(nn.CAddTable(){ a2h, h2h })
    local weights = nn.SoftMax()(scores)
    local attend = nn.CMulTable(){ weights, annotations }
 

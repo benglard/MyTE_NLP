@@ -19,10 +19,6 @@ end
 
 local ExpandAs, _ = torch.class('nn.ExpandAs', 'nn.Module')
 
-function ExpandAs:__init()
-   Module.__init(self)
-end
-
 function ExpandAs:updateOutput(input)
    local prev, other = unpack(input)
    self.output:resizeAs(prev):copy(prev):expandAs(self.output, other)
@@ -42,10 +38,6 @@ end
 
 local NumberToTensor, _ = torch.class('nn.NumberToTensor', 'nn.Module')
 
-function NumberToTensor:__init()
-   Module.__init(self)
-end
-
 function NumberToTensor:updateOutput(input)
    local t = type(input)
    if t == 'number' then
@@ -61,4 +53,24 @@ end
 
 function NumberToTensor:updateGradInput(input, gradOutput)
    print(input, gradOutput)
+end
+
+-------- nn.Round
+
+local Round, _ = torch.class('nn.Round', 'nn.Module')
+
+function Round:updateOutput(input)
+   self.output
+      :resizeAs(input)
+      :copy(input)
+      :round()
+   return self.output
+end
+
+function Round:updateGradInput(input, gradOutput)
+   self.gradInput
+      :resizeAs(gradOutput)
+      :copy(gradOutput)
+      :round()
+   return self.gradInput
 end

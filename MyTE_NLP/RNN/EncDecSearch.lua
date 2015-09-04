@@ -100,13 +100,16 @@ function BiEncDecSearch:updateOutput(input)
          local input = self.inputs[es]:resize(self.inputSize)
          local enc_i = self.encoder.clones[i]
          local output = enc_i:forward(input)
-         self.annotations[{es, {}, {self.hiddenSize + 1, self.hiddenSize * 2}}]
+         self.annotations[{es, {}, {hs + 1, hs * 2}}]
             :copy(enc_i.modules[self.nencmods].prev_h)
          self.prev = self.prev:typeAs(output):resizeAs(output):copy(output)
       end
 
       local input_1 = self.inputs[1]:clone():resize(self.inputSize)
-      local drv = self.encoder.clones[1]:forward(input_1)
+      local enc_1 = self.encoder.clones[1]
+      local drv = enc_1:forward(input_1)
+      self.annotations[{1, {}, {hs + 1, hs * 2}}]
+         :copy(enc_1.modules[self.nencmods].prev_h)
 
       local rv = torch.zeros(2 * hs)
       rv[{{1, hs}}]:copy(erv)
@@ -129,15 +132,16 @@ function BiEncDecSearch:updateOutput(input)
          self.step.decoder = ds + 1
       end
 
+      local h_j = self.annotations[ds]
       local prev_dec = self.decoder.clones[ds - 1]
-      local h_t
+      local prev_s
       if prev_dec == nil then
-         h_t = torch.zeros(self.batchSize, self.hiddenSize * 2)
+         prev_s = torch.zeros(self.batchSize, self.hiddenSize * 2)
       else
-         h_t = prev_dec.modules[2].prev_h
+         prev_s = prev_dec.modules[2].prev_h
       end
 
-      local attended = dec.modules[1]:forward{ self.annotations[ds], h_t }
+      local attended = dec.modules[1]:forward{ h_j, prev_s }
       dec.modules[2].prev_h:copy(attended)
       local output = input
       for i = 2, #dec.modules do

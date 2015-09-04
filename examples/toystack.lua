@@ -11,8 +11,11 @@ cmd:option('--clone', false, 'clone over time steps')
 cmd:option('--kp', false, 'Keep params init from autobw')
 cmd:option('--n', 10000, 'n iterations')
 cmd:option('--exp', 1, 'exp of a^expb^exp sequence')
+cmd:option('--discrete', false, 'discretize stacks')
+cmd:option('--noop', false, 'use noop')
 cmd:option('--endon', false, 'end on batch_size')
 local opt = cmd:parse(arg or {})
+print(opt)
 
 local n_input = 1
 local n_output = 2
@@ -35,7 +38,8 @@ if opt.rnn then
       model:add(layer(n_hidden, n_hidden, 1, true):apply(name, opt.debug))
    end
 else
-   model:add(rnn.Stack(n_input, n_hidden, n_hidden, 2, true):apply('stack1', opt.debug))
+   model:add(rnn.Stack(n_input, n_hidden, n_hidden, 2, 1,
+      opt.discrete, opt.noop, true):apply('stack1', opt.debug))
    for i = 2, opt.nstacks do
       local name = string.format('stack%d', i)
       model:add(
