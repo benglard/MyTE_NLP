@@ -184,3 +184,7 @@ function Module:push(state, action)
    self.next_s = state
    self.next_a = action
 end
+
+function Module:__tostring__()
+   return torch.type(self) .. ': ' .. tostring(self.network)
+end

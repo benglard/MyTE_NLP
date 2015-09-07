@@ -1,10 +1,14 @@
 require '../MyTE_NLP'
 
 local cmd = torch.CmdLine()
-cmd:option('--agent', 'DeepQ', 'DeepQ | Reinforce')
+cmd:option('--hidden', 100, '# hidden units')
+cmd:option('--agent', 'DeepQ', 'DeepQ | RecurrentDeepQ')
 cmd:option('--size', 4, 'Game board size')
+cmd:option('--layer', 'rec', 'rec | gru')
+cmd:option('--nl', 1, '# layers')
+cmd:option('--attend', false, 'use attention')
+cmd:option('--seq', 4, 'seq length')
 local opt = cmd:parse(arg or {})
-torch.manualSeed(os.time())
 
 table.reverse = function(t)
    local rv = {}
@@ -376,14 +380,18 @@ local Game = GameManager(opt.size)
 local sm = nn.SoftMax()
 
 local env = { nstates = opt.size * opt.size, nactions = 4 }
-local opt = { rectifier = nn.ReLU, optim = 'rmsprop', memory = 1000000,
-   interval = 1, gamma = 0.99, batchsize = 20, gradclip = 5, usestate = true }
+local aopt = { rectifier = nn.ReLU, optim = 'rmsprop', memory = 1000000,
+   interval = 1, gamma = 0.99, batchsize = 20, gradclip = 5, usestate = true,
+   hidden = opt.hidden, rnntype = opt.layer, nlayers = opt.nl,
+   attend = opt.attend, seq = opt.seq }
 local params = { verbose = true }
 
 local lastD = -1
 
-rl.RLTrainer(
-   rl.DeepQ(env, opt),
+local agent = rl[opt.agent](env, aopt)
+print(opt, env, aopt, agent)
+
+rl.RLTrainer(agent,
    function()
       return Game:state()
    end,
@@ -400,7 +408,7 @@ rl.RLTrainer(
       lastD = direction
       --local direction = torch.multinomial(ps, 1):squeeze()
       Game:move(direction)
-      print(Game.grid)
+      --print(Game.grid)
       return Game.score
    end
 ):train(params)

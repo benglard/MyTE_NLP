@@ -1,67 +1,7 @@
--------- DeepQMemory
+local RecurrentDeepQ, DeepQ = torch.class('rl.RecurrentDeepQ', 'rl.DeepQ')
+local RLModule = torch.getmetatable('rl.Module')
 
-local Memory = torch.class('rl.DeepQMemory')
-
-function Memory:__init(size)
-   --[[
-      REQUIRES:
-         size -> the size of a DeepQMemory module
-      EFFECTS:
-         Creates an instance of rl.DeepQMemory
-         for use in storing and replaying a
-         DeepQ agent's experiences.
-   ]]
-
-   self.size = size
-   self.tape = {}
-   self.pos = 1
-end
-
-function Memory:append(state)
-   --[[
-      REQUIRES:
-         state -> a lua table storing the state
-         or experience of a DeepQ agent
-      EFFECTS:
-         Places state on the memory tape
-         at it's current position. Increments
-         the tape's position and resets if
-         memory is full.
-   ]]
-
-   self.tape[self.pos] = state
-   self.pos = self.pos + 1
-   if self.pos > self.size then
-      self:clear()
-   end
-end
-
-function Memory:clear()
-   --[[
-      EFFECTS:
-         Resets the memory tape's position
-         to 1
-   ]]
-
-   self.pos = 1
-end
-
-function Memory:sample()
-   --[[
-      EFFECTS:
-         Samples an experience from memory
-         for replay 
-   ]]
-
-   local idx = torch.random(1, #self.tape)
-   return self.tape[idx]
-end
-
--------- DeepQ
-
-local DeepQ, parent = torch.class('rl.DeepQ', 'rl.Module')
-
-function DeepQ:__init(env, options)
+function RecurrentDeepQ:__init(env, options)
    --[[
       REQUIRES:
          env -> a lua table with keys nstates and nactions,
@@ -75,18 +15,18 @@ function DeepQ:__init(env, options)
          multi-layer neural network to maximize future reward.
    ]]
 
-   parent.__init(self, env, options)
+   RLModule.__init(self, env, options)
    self.gamma     = self.options.gamma     or 0.75  -- future reward discount factor
    self.epsilon   = self.options.epsilon   or 0.1   -- for epsilon-greedy policy
    self.lr        = self.options.lr        or 0.01  -- network learning rate
    self.momentum  = self.options.momentum  or 0.9   -- network momentum (only sgd)
    self.hidden    = self.options.hidden    or 100   -- # hidden units
-   self.memory    = self.options.memory    or 5000  -- size of experience replay
-   self.interval  = self.options.interval  or 25    -- # time steps before experience added to memory
-   self.batchsize = self.options.batchsize or 10    -- # time steps to sample and learn from
    self.gradclip  = self.options.gradclip  or 1     -- gradient clipping level
    self.usestate  = self.options.usestate  or false -- Use whole state tensor?
-   self.rectifier = self.options.rectifier or nn.Tanh
+   self.rnntype   = self.options.rnntype   or 'rec' -- RNN type (rec | gru)
+   self.nlayers   = self.options.nlayers   or 1     -- # recurrent layers
+   self.attend    = self.options.attend    or false -- Use RecurrentAttention
+   self.seq       = self.options.seq       or 1     -- RecurrentAttention seq length
    self.network   = self.options.network   or self:buildNetwork()
    self.optim     = self.options.optim     or 'sgd'
 
@@ -97,27 +37,37 @@ function DeepQ:__init(env, options)
       table.insert(self.updates, self.gradclip)
    end
    
-   self.memory = rl.DeepQMemory(self.memory)
    self.gradInput:resize(self.nstates):zero()
 end
 
-function DeepQ:buildNetwork()
-   --[[
-      EFFECTS:
-         Returns the underlying network used to
-         train the DeepQ agent.
-   ]]
-
+function RecurrentDeepQ:buildNetwork()
    local model = nn.Sequential()
-   model:add(nn.Linear(self.nstates, self.hidden))
-   model:add(self.rectifier())
-   model:add(nn.Linear(self.hidden, self.hidden))
-   model:add(self.rectifier())
-   model:add(nn.Linear(self.hidden, self.nactions))
+
+   if self.attend then
+      model:add(nn.Linear(self.nstates, self.hidden))
+      model:add(rnn.RecurrentAttention(
+         rnn.FFAttention(self.hidden),
+         rnn.Recurrent(self.hidden, self.hidden),
+         self.seq))
+      model:add(nn.Linear(self.hidden, self.nactions))
+   else
+      local layer
+      if     self.rnntype == 'rec'  then layer = rnn.Recurrent
+      elseif self.rnntype == 'gru'  then layer = rnn.GRU
+      else error('Unsupported layer type: ' .. self.rnntype) end
+
+      model:add(layer(self.nstates, self.hidden))
+
+      for i = 2, self.nlayers do
+         model:add(layer(self.hidden, self.hidden))
+      end
+
+      model:add(nn.Linear(self.hidden, self.nactions))
+   end
    return model
 end
 
-function DeepQ:act(state)
+function RecurrentDeepQ:act(state)
    --[[
       REQUIRES:
          state -> a number between 1 and self.nstates
@@ -157,7 +107,7 @@ function DeepQ:act(state)
    end
 
    if self.gpu then
-      output = output:typeAs(torch.Tensor())
+      output = self:transfer(output)
    end
 
    self.output:resizeAs(output):copy(output)
@@ -165,7 +115,7 @@ function DeepQ:act(state)
    return self.output
 end
 
-function DeepQ:learn(reward)
+function RecurrentDeepQ:learn(reward)
    --[[
       REQUIRES:
          reward -> a number representing the agent's
@@ -180,35 +130,15 @@ function DeepQ:learn(reward)
 
    if self.prev_r ~= nil and self.lr > 0 then
       -- qUpdate, loss is a measure of surprise to the agent
-      self.loss = self:qUpdate('learn')
-
-      -- Store experience in replay memory
-      if self.nsteps % self.interval == 0 then
-         local exp = {
-            self.prev_s, self.prev_a, self.prev_r,
-            self.next_s, self.next_a
-         }
-         self.memory:append(exp)
-      end
+      self.loss = self:qUpdate()
       self.nsteps = self.nsteps + 1
-      
-      -- Sample some additional experience from replay memory and learn from it
-      for i = 1, self.batchsize do
-         local exp = self.memory:sample()
-         self:qUpdate(unpack(exp))
-      end
    end
    self.prev_r = reward
 end
 
-function DeepQ:qUpdate(prev_s, prev_a, prev_r, next_s, next_a)
+function RecurrentDeepQ:qUpdate()
    --[[
       REQUIRES:
-         prev_s -> previous state
-         prev_a -> previous action
-         prev_r -> previous reward
-         next_s -> next state
-         next_a -> next reward
       EFFECTS:
          Computes the value of the Q function given
          the params passed as input, backwards the
@@ -216,15 +146,11 @@ function DeepQ:qUpdate(prev_s, prev_a, prev_r, next_s, next_a)
          the network's paramaters.
    ]]
 
-   local learned = false
-   if prev_s == 'learn' or prev_s == nil then
-      prev_s = self.prev_s
-      learned = true
-   end
-   prev_a = prev_a or self.prev_a
-   prev_r = prev_r or self.prev_r
-   next_s = next_s or self.next_s
-   next_a = next_a or self.next_a
+   local prev_s = self.prev_s
+   local prev_a = self.prev_a
+   local prev_r = self.prev_r
+   local next_s = self.next_s
+   local next_a = self.next_a
 
    -- Compute Q(s, a) = r + gamma * max_a' Q(s', a')
    local input
@@ -252,26 +178,9 @@ function DeepQ:qUpdate(prev_s, prev_a, prev_r, next_s, next_a)
    grad[prev_a] = loss
    grad:clamp(-self.gradclip, self.gradclip)
 
-   local currentGradInput = self.network:backward(input, grad)
-
-   if learned then
-      self.gradInput:copy(currentGradInput)
-      self:update(self.network, self.optim, self.updates)
-   end
+   local grad = self.network:backward(input, grad)
+   self.gradInput:copy(grad)
+   self:update(self.network, self.optim, self.updates)
+   
    return loss
-end
-
-function DeepQ:cuda()
-   if cutorch ~= nil then
-      self.gpu = true
-      self.network = self.network:cuda()
-      self.w = self.w:cuda()
-      self.dw = self.dw:cuda()
-   end
-   return self
-end
-
-function DeepQ:transfer(v)
-   if self.gpu then return v:cuda()
-   else return v end
 end
