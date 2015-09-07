@@ -85,6 +85,7 @@ function DeepQ:__init(env, options)
    self.interval  = self.options.interval  or 25    -- # time steps before experience added to memory
    self.batchsize = self.options.batchsize or 10    -- # time steps to sample and learn from
    self.gradclip  = self.options.gradclip  or 1     -- gradient clipping level
+   self.usestate  = self.options.usestate  or false -- Use whole state tensor?
    self.rectifier = self.options.rectifier or nn.Tanh
    self.network   = self.options.network   or self:buildNetwork()
    self.optim     = self.options.optim     or 'sgd'
@@ -137,7 +138,9 @@ function DeepQ:act(state)
    else
       input = state:clone()
       local max, argmax = input:max(1)
-      state = argmax:squeeze()
+      if not self.usestate then
+         state = argmax:squeeze()
+      end
    end
    input = self:transfer(input)
 
@@ -224,13 +227,25 @@ function DeepQ:qUpdate(prev_s, prev_a, prev_r, next_s, next_a)
    next_a = next_a or self.next_a
 
    -- Compute Q(s, a) = r + gamma * max_a' Q(s', a')
-   local input = self:transfer(torch.zeros(self.nstates))
-   input[next_s] = 1.0
+   
+   local input
+
+   if self.usestate then
+      input = next_s
+   else
+      input = self:transfer(torch.zeros(self.nstates))
+      input[next_s] = 1.0
+   end
+
    local output = self.network:forward(input)
    local maxQ = prev_r + self.gamma * output:max()
 
-   input = self:transfer(torch.zeros(self.nstates))
-   input[prev_s] = 1.0
+   if self.usestate then
+      input = prev_s
+   else
+      input = self:transfer(torch.zeros(self.nstates))
+      input[prev_s] = 1.0
+   end
    local pred = self.network:forward(input)
 
    local loss = pred[prev_a] - maxQ

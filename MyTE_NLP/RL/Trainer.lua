@@ -37,7 +37,7 @@ function RLTrainer:train(params)
    local verbose  = params.verbose or false
    local epsdecay = params.epsdecay or 1
    local maxR = params.maxR or 1e8
-   local minR = params.minR or 1e-8
+   local minR = params.minR or -1e8
    local ntrain = params.ntrain or false
    local c = 1
 
@@ -63,10 +63,10 @@ function RLTrainer:train(params)
    end
 end
 
-function RLTrainer:predict(input, params)
+function RLTrainer:predict(start, params)
    --[[
       REQUIRES:
-         input -> input to self.agent.network.forward
+         start -> input to self.agent.network.forward
          params -> set of parameters
       EFFECTS:
          Returns the predicted action for
@@ -78,18 +78,20 @@ function RLTrainer:predict(input, params)
    local temp = params.temp or 0.1
    local length = params.length or 1
 
-   local rv = {input}
+   local rv = {start}
    for n = 1, length do
-      local o = self.agent.network:forward(input):clone()
+      local nin = torch.zeros(self.agent.nstates)
+      nin[start] = 1.0
+      local o = self.agent.network:forward(nin):clone()
       if sample then
-         local probs = torch.exp(o:div(temp))
+         local probs = o:div(temp):exp()
          probs:div(probs:sum(1):squeeze())
-         input = torch.multinomial(probs:float(), 1):squeeze()
+         start = torch.multinomial(probs:float(), 1):squeeze()
       else
          local m, am = o:max(1)
-         input = am:squeeze()
+         start = am:squeeze()
       end
-      table.insert(rv, input)
+      rv[n + 1] = start
    end
    return rv
 end

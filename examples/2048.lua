@@ -377,7 +377,7 @@ local sm = nn.SoftMax()
 
 local env = { nstates = opt.size * opt.size, nactions = 4 }
 local opt = { rectifier = nn.ReLU, optim = 'rmsprop', memory = 1000000,
-   interval = 1, gamma = 0.99, batchsize = 20, gradclip = 5 }
+   interval = 1, gamma = 0.99, batchsize = 20, gradclip = 5, usestate = true }
 local params = { verbose = true }
 
 local lastD = -1
@@ -396,7 +396,7 @@ rl.RLTrainer(
          max, argmax = ps:max(1)
          direction = argmax:squeeze()
       end
-      print(ps, direction)
+      --print(ps, direction)
       lastD = direction
       --local direction = torch.multinomial(ps, 1):squeeze()
       Game:move(direction)
