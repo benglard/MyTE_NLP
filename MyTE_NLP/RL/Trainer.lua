@@ -39,6 +39,7 @@ function RLTrainer:train(params)
    local maxR = params.maxR or 1e8
    local minR = params.minR or -1e8
    local ntrain = params.ntrain or false
+   local endon = params.endon or false
    local c = 1
 
    while true do
@@ -57,7 +58,10 @@ function RLTrainer:train(params)
          if ntrain then
             xlua.progress(c, ntrain)
             c = c + 1
-            if c > ntrain then c = 1 end
+            if c > ntrain then
+               if endon then break
+               else c = 1 end
+            end
          end
       end
    end

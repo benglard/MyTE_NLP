@@ -177,8 +177,6 @@ function Module:push(state, action)
          Shifts the agent's current state
    ]]
 
-   --[[assert(type(state) == 'number' and type(action) == 'number',
-      'rl.Module.push requires input of type number')]]
    self.prev_s = self.next_s
    self.prev_a = self.next_a
    self.next_s = state
