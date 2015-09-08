@@ -5,6 +5,7 @@ local cmd = torch.CmdLine()
 cmd:option('--nstacks', 1, 'number of stacks')
 cmd:option('--verbose', false, 'print useful stuff')
 cmd:option('--rnn', false, 'use plain rnns')
+cmd:option('--deque', false, 'use rnn.Deque')
 cmd:option('--layer', 'rec', 'rec | lstm | gru')
 cmd:option('--debug', false, 'set nngraph debugging mode')
 cmd:option('--clone', false, 'clone over time steps')
@@ -38,7 +39,10 @@ if opt.rnn then
       model:add(layer(n_hidden, n_hidden, 1, true):apply(name, opt.debug))
    end
 else
-   model:add(rnn.Stack(n_input, n_hidden, n_hidden, 2, opt.nstacks,
+   local layer = nil
+   if opt.deque then layer = rnn.Deque
+   else layer = rnn.Stack end
+   model:add(layer(n_input, n_hidden, n_hidden, 2, opt.nstacks,
       opt.discrete, opt.noop, true):apply('stack1', opt.debug))
 end
 

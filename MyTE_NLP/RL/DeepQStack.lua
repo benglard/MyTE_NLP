@@ -29,6 +29,7 @@ function DeepQStack:__init(env, options)
    self.nstacks   = self.options.nstacks   or 1     -- # stacks in stack machine
    self.discrete  = self.options.discrete  or false -- Discretize stacks
    self.usenoop   = self.options.usenoop   or false -- Stack with NO-OP
+   self.deque     = self.options.deque     or false -- Use rnn.Deque
    self.network   = self.options.network   or self:buildNetwork()
    self.optim     = self.options.optim     or 'sgd'
 
@@ -44,9 +45,13 @@ function DeepQStack:__init(env, options)
 end
 
 function DeepQStack:buildNetwork()
+   local layer = nil
+   if self.deque then layer = rnn.Deque
+   else layer = rnn.Stack end
+
    local model = nn.Sequential()
    model:add(nn.Reshape(1, self.nstates))
-   model:add(rnn.Stack(
+   model:add(layer(
       self.nstates, self.hidden,
       self.hidden, 2, self.nstacks,
       self.discrete, self.usenoop))

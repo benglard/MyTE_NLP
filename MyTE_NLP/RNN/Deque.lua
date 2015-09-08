@@ -1,6 +1,7 @@
-local Stack, parent = torch.class('rnn.Stack', 'rnn.Module')
+local Deque, Stack = torch.class('rnn.Deque', 'rnn.Stack')
+local RNNModule = torch.getmetatable('rnn.Module')
 
-function Stack:__init(input, hidden, p, k, nstacks, discretize, useno, annotate)
+function Deque:__init(input, hidden, p, k, nstacks, discretize, useno, annotate)
    --[[
       REQUIRES:
          input -> a number, size of input
@@ -14,12 +15,12 @@ function Stack:__init(input, hidden, p, k, nstacks, discretize, useno, annotate)
          annotate -> a boolean, if true, annotates the
             nodes of the nngraph with local variable names
       EFFECTS:
-         Creates an instance of the rnn.Stack class
+         Creates an instance of the rnn.Deque class
          for use in building neural network architectures
-         with recurrent layers that control a stack machine.
+         with recurrent layers that control a deque machine.
    ]]
 
-   parent.__init(self, input, hidden)
+   RNNModule.__init(self, input, hidden)
    self.p = p or self.hiddenSize
    self.k = k or 2
    self.nstacks = nstacks or 1
@@ -37,8 +38,8 @@ function Stack:__init(input, hidden, p, k, nstacks, discretize, useno, annotate)
    local prev_h = nn.Identity()()
    local prev_s = nn.Identity()()
 
-   local nactions = 2
-   if useno then nactions = 3 end
+   local nactions = 4
+   if useno then nactions = 6 end
    self.nactions = nactions
 
    local i2h = nn.Linear(self.inputSize, self.hiddenSize)(x)
@@ -68,27 +69,51 @@ function Stack:__init(input, hidden, p, k, nstacks, discretize, useno, annotate)
       end
 
       local h2a = nn.SoftMax()(nn.Linear(self.hiddenSize, nactions)(next_h))
-      local push = nn.Select(2, 1)(h2a)
-      local pop = nn.Select(2, 2)(h2a)
+      local actions = { 
+         top = {
+            push = nn.Select(2, 1)(h2a),
+            pop  = nn.Select(2, 3)(h2a)
+         },
+         bottom = {
+            push = nn.Select(2, 2)(h2a),
+            pop  = nn.Select(2, 4)(h2a)
+         },
+         noop = {}
+      }
 
       local top = nn.Sigmoid()(nn.Linear(self.hiddenSize, 1)(next_h))
+      local bottom = nn.Sigmoid()(nn.Linear(self.hiddenSize, 1)(next_h))
+
       local next_s0_t = {
-         nn.CMulTable(){ push, top },
-         nn.CMulTable(){ pop, s_i[2] }
+         nn.CMulTable(){ actions.top.push, top },
+         nn.CMulTable(){ actions.top.pop, s_i[2] }
       }
+      local next_sp_t = {
+         nn.CMulTable(){ actions.bottom.push, bottom },
+         nn.CAddTable(){ actions.bottom.pop, s_i[self.p - 1] }
+      }
+
       if useno then
-         local noop = nn.Select(2, 3)(h2a)
-         next_s0_t[3] = nn.CMulTable(){ noop, s_i[1] }
+         actions.noop.top = nn.Select(2, 5)(h2a)
+         next_s0_t[3] = nn.CMulTable(){ actions.noop.top, s_i[1] }
+
+         actions.noop.bottom = nn.Select(2, 6)(h2a)
+         next_sp_t[3] = nn.CMulTable(){ actions.noop.bottom, s_i[self.p] }
       end
+
       local next_s0 = nn.CAddTable()(next_s0_t)
+      local next_sp = nn.CAddTable()(next_sp_t)
 
       local elements = { next_s0 }
       for i = 2, self.p - 1 do
          elements[i] = nn.CAddTable(){
-            nn.CMulTable(){ push, s_i[i - 1] },
-            nn.CMulTable(){ pop, s_i[i + 1] }
+            nn.CMulTable(){ actions.top.push, s_i[i - 1] },
+            nn.CMulTable(){ actions.top.pop,  s_i[i + 1] },
+            nn.CMulTable(){ actions.bottom.push, s_i[i + 1] },
+            nn.CMulTable(){ actions.bottom.pop,  s_i[i - 1] }
          }
       end
+      elements[self.p] = next_sp
       local next_s = nn.JoinTable(1)(elements)
 
       if discretize then
@@ -102,7 +127,7 @@ function Stack:__init(input, hidden, p, k, nstacks, discretize, useno, annotate)
    self.layer = nn.gModule({x, prev_h, prev_s}, outputs)
 end
 
-function Stack:updateOutput(input)
+function Deque:updateOutput(input)
    --[[
       REQUIRES:
          input -> a torch Tensor or table
@@ -123,12 +148,12 @@ function Stack:updateOutput(input)
    self.output:resizeAs(next_h):copy(next_h)
    for i = 2, #outputs do
       local next_s = outputs[i]
-      self.next_s[{i - 1, {1, self.p - 1}}]:copy(next_s)
+      self.next_s[{i - 1, {}}]:copy(next_s)
    end
    return self.output
 end
 
-function Stack:updateGradInput(input, gradOutput)
+function Deque:updateGradInput(input, gradOutput)
    --[[
       REQUIRES:
          input -> a torch Tensor
@@ -142,7 +167,7 @@ function Stack:updateGradInput(input, gradOutput)
    local layer = self.clones[self.step] or self.layer
    self.gradOutputTable = { gradOutput }
    for i = 1, self.nstacks do
-      self.gradOutputTable[i + 1] = self.dprev_s[{i, {1, self.p - 1}}]
+      self.gradOutputTable[i + 1] = self.dprev_s[{i, {}}]
    end
 
    local gradInputs = layer:updateGradInput(self.input, self.gradOutputTable)
@@ -151,30 +176,4 @@ function Stack:updateGradInput(input, gradOutput)
    self.dnext_h:resizeAs(gih):copy(gih)
    self.dnext_s:resizeAs(gis):copy(gis)
    return self.gradInput
-end
-
-function Stack:accGradParameters(input, gradOutput, scale)
-   --[[
-      REQUIRES:
-         input -> a torch Tensor or table
-         gradOutput -> a torch Tensor, output of a previous layer
-         scale -> a number
-      EFFECTS:
-         Calculates the gradient with respect to the
-         parameters of the layer or it's clone at the 
-         correct time-step
-   ]]
-
-   local layer = self.clones[self.step] or self.layer
-   layer:accGradParameters(self.input, self.gradOutputTable, scale)
-   self.prev_h:copy(self.output)
-   self.prev_s:copy(self.next_s)
-   self.dprev_h:copy(self.dnext_h)
-   self.dprev_s:copy(self.dnext_s)
-end
-
-function Stack:__tostring__()
-   local dims = string.format('(%d -> %d | %d stack(s) | %d actions)',
-      self.inputSize, self.hiddenSize, self.nstacks, self.nactions)
-   return torch.type(self) .. dims
 end
