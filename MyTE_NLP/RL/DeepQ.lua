@@ -99,6 +99,7 @@ function DeepQ:__init(env, options)
    
    self.memory = rl.DeepQMemory(self.memory)
    self.gradInput:resize(self.nstates):zero()
+   self.ps, self.gs = self.network:getParameters()
 end
 
 function DeepQ:buildNetwork()
@@ -137,8 +138,8 @@ function DeepQ:act(state)
       input[state] = 1.0
    else
       input = state:clone()
-      local max, argmax = input:max(1)
       if not self.usestate then
+         local max, argmax = input:max(1)
          state = argmax:squeeze()
       end
    end
@@ -274,4 +275,70 @@ end
 function DeepQ:transfer(v)
    if self.gpu then return v:cuda()
    else return v end
+end
+
+function DeepQ:sgd(net, lr, momentum)
+   --[[
+      REQUIRES:
+         net -> an instance of nn
+         lr -> network learning rate, a number or nil
+         momentum -> network momentum, a number or nil
+      EFFECTS:
+         Updates net using stochastic gradient
+         descent.
+   ]]
+
+   lr = lr or 0.01
+   mom = momentum or 0.9
+
+   local ps, gs = self.ps, self.gs
+   gs:mul(-lr)
+
+   if mom > 0.0 then
+      self.dw:resizeAs(gs):mul(mom):add(gs)
+      ps:add(self.dw)
+   else
+      ps:add(gs)
+   end
+
+   gs:zero()
+end
+
+function DeepQ:rmsprop(net, lr, clip)
+   --[[
+      REQUIRES:
+         net -> an instance of nn
+         lr -> network learning rate, a number or nil
+         momentum -> gradient clipping level, a number or nil
+      EFFECTS:
+         Updates net using the rmsprop optmization
+         method.
+   ]]
+
+   lr = lr or 0.01
+   clip = clip or 5
+
+   local epsilon = 1e-8
+   local decay = 0.999
+   local reg = 0.0001
+
+   local ps, gs = self.ps, self.gs
+   self.w:resizeAs(gs)
+   self.dw:resizeAs(gs)
+
+   -- update cache
+   self.w:mul(decay):add(torch.cmul(gs, gs):mul(1 - decay))
+
+   -- clip gradients
+   gs:clamp(-clip, clip)
+
+   -- update params
+   self.dw
+      :mul(gs, -lr)
+      :cdiv(torch.add(self.w, epsilon):sqrt())
+      :add(torch.mul(ps, -reg))
+   ps:add(self.dw)
+
+   -- zero gradients
+   gs:zero()
 end

@@ -30,6 +30,7 @@ function Module:__init(env, options)
    self.prev_a = nil
    self.next_a = nil
 
+   self.paramsandgrads = {}
    self.w  = torch.Tensor()
    self.dw = torch.Tensor()
    self.gpu = false

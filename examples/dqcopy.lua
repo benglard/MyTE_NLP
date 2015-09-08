@@ -1,6 +1,6 @@
 require '../MyTE_NLP'
 local cmd = torch.CmdLine()
-cmd:option('--agent', 'DeepQ', 'DeepQ | RecurrentDeepQ')
+cmd:option('--agent', 'DeepQ', 'DeepQ | RecurrentDeepQ | DeepQStack')
 cmd:option('--size', 10, 'n bits')
 cmd:option('--layer', 'rec', 'rec | gru')
 cmd:option('--nl', 1, '# layers')
@@ -54,9 +54,11 @@ trainer = rl.RLTrainer(agent,
       return reward
    end
 )
-pcall(trainer.train, trainer)
+--ok,err =pcall(trainer.train, trainer)
+--print(err)
+trainer:train()
 
-state = torch.randperm(10)
+--[[state = torch.randperm(10)
 for i = 1, 10 do
    local si = state[i]
    local action = trainer.agent:forward(si)
@@ -64,4 +66,4 @@ for i = 1, 10 do
    local max, argmax = ps:max(1)
    argmax = argmax:squeeze()
    print(si, argmax)
-end
+end]]

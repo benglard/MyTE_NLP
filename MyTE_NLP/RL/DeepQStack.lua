@@ -1,7 +1,7 @@
-local RecurrentDeepQ, DeepQ = torch.class('rl.RecurrentDeepQ', 'rl.DeepQ')
+local DeepQStack, DeepQ = torch.class('rl.DeepQStack', 'rl.DeepQ')
 local RLModule = torch.getmetatable('rl.Module')
 
-function RecurrentDeepQ:__init(env, options)
+function DeepQStack:__init(env, options)
    --[[
       REQUIRES:
          env -> a lua table with keys nstates and nactions,
@@ -10,11 +10,11 @@ function RecurrentDeepQ:__init(env, options)
             agent's environment
          options -> a lua table or nil
       EFFECTS:
-         Creates an instance of rl.RecurrentDeepQ, a reinforcement 
-         learning agent that approximates the Q value function using a
+         Creates an instance of rl.DeepQ, a reinforcement learning
+         agent that approximates the Q value function using a
          multi-layer neural network to maximize future reward.
 
-         Instead of experience replay, a recurrent neural network is used
+         Instead of experience replay, a RNN stack machine is used
          to store "memories".
    ]]
 
@@ -26,10 +26,9 @@ function RecurrentDeepQ:__init(env, options)
    self.hidden    = self.options.hidden    or 100   -- # hidden units
    self.gradclip  = self.options.gradclip  or 1     -- gradient clipping level
    self.usestate  = self.options.usestate  or false -- Use whole state tensor?
-   self.rnntype   = self.options.rnntype   or 'rec' -- RNN type (rec | gru)
-   self.nlayers   = self.options.nlayers   or 1     -- # recurrent layers
-   self.attend    = self.options.attend    or false -- Use RecurrentAttention
-   self.seq       = self.options.seq       or 1     -- RecurrentAttention seq length
+   self.nstacks   = self.options.nstacks   or 1     -- # stacks in stack machine
+   self.discrete  = self.options.discrete  or false -- Discretize stacks
+   self.usenoop   = self.options.usenoop   or false -- Stack with NO-OP
    self.network   = self.options.network   or self:buildNetwork()
    self.optim     = self.options.optim     or 'sgd'
 
@@ -44,34 +43,18 @@ function RecurrentDeepQ:__init(env, options)
    self.ps, self.gs = self.network:getParameters()
 end
 
-function RecurrentDeepQ:buildNetwork()
+function DeepQStack:buildNetwork()
    local model = nn.Sequential()
-
-   if self.attend then
-      model:add(nn.Linear(self.nstates, self.hidden))
-      model:add(rnn.RecurrentAttention(
-         rnn.FFAttention(self.hidden),
-         rnn.Recurrent(self.hidden, self.hidden),
-         self.seq))
-      model:add(nn.Linear(self.hidden, self.nactions))
-   else
-      local layer
-      if     self.rnntype == 'rec'  then layer = rnn.Recurrent
-      elseif self.rnntype == 'gru'  then layer = rnn.GRU
-      else error('Unsupported layer type: ' .. self.rnntype) end
-
-      model:add(layer(self.nstates, self.hidden))
-
-      for i = 2, self.nlayers do
-         model:add(layer(self.hidden, self.hidden))
-      end
-
-      model:add(nn.Linear(self.hidden, self.nactions))
-   end
+   model:add(nn.Reshape(1, self.nstates))
+   model:add(rnn.Stack(
+      self.nstates, self.hidden,
+      self.hidden, 2, self.nstacks,
+      self.discrete, self.usenoop))
+   model:add(nn.Linear(self.hidden, self.nactions))
    return model
 end
 
-function RecurrentDeepQ:act(state)
+function DeepQStack:act(state)
    --[[
       REQUIRES:
          state -> a number between 1 and self.nstates
@@ -106,6 +89,7 @@ function RecurrentDeepQ:act(state)
    else
       -- greedy wrt Q function
       output = self.network:forward(input):double()
+      output:resize(self.nactions)
       local max, argmax = output:max(1)
       action = argmax:squeeze()
    end
@@ -119,7 +103,7 @@ function RecurrentDeepQ:act(state)
    return self.output
 end
 
-function RecurrentDeepQ:learn(reward)
+function DeepQStack:learn(reward)
    --[[
       REQUIRES:
          reward -> a number representing the agent's
@@ -140,7 +124,7 @@ function RecurrentDeepQ:learn(reward)
    self.prev_r = reward
 end
 
-function RecurrentDeepQ:qUpdate()
+function DeepQStack:qUpdate()
    --[[
       REQUIRES:
       EFFECTS:
@@ -175,11 +159,11 @@ function RecurrentDeepQ:qUpdate()
       input = self:transfer(torch.zeros(self.nstates))
       input[prev_s] = 1.0
    end
-   local pred = self.network:forward(input)
+   local pred = self.network:forward(input):resize(self.nactions)
 
    local loss = pred[prev_a] - maxQ
-   local grad = self:transfer(torch.zeros(self.nactions))
-   grad[prev_a] = loss
+   local grad = self:transfer(torch.zeros(1, self.nactions))
+   grad[1][prev_a] = loss
    grad:clamp(-self.gradclip, self.gradclip)
 
    local grad = self.network:backward(input, grad)
