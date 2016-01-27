@@ -166,6 +166,18 @@ function String:mul(other)
    return rv
 end
 
+function String:capitalize()
+   --[[
+      EFFECTS:
+        Returns the capitalized version
+        of this string
+   ]]
+
+   local c = self{1}
+   local l = #self
+   return c:upper() + self{2, l}
+end
+
 function String:table()
    --[[
       EFFECTS:
