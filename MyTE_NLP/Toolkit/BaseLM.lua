@@ -149,14 +149,16 @@ function NgramLM:prob(context, token)
    end
  
    local ngram = table.deepcopy(previous)
-   ngram[self.n] = word
+   ngram[self.n] = token
 
-   if self.ngrams:contains(ngram) or self.n == 1 then
-      return self.model:get(ngram):prob(word)
+   if self.ngrams:contains(ngram) then
+      return self.model:get(ngram):prob(token)
+   elseif self.n == 1 then
+      return self.model:get(previous):prob(token)
    else
-      table.remove(ngram, 1)
       table.remove(ngram, self.n)
-      return self:alpha(previous) * self.backoff:prob(ngram, word)
+      table.remove(ngram, 1)
+      return self:alpha(previous) * self.backoff:prob(ngram, token)
    end
 end
 
