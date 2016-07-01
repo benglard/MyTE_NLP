@@ -148,17 +148,13 @@ function DeepQ:act(state)
    if math.random() < self.epsilon then
       -- epsilon greedy policy
       action = torch.random(1, self.nactions)
-      output = torch.zeros(self.nactions)
+      output = self:transfer(torch.zeros(self.nactions))
       output[action] = 1.0
    else
       -- greedy wrt Q function
-      output = self.network:forward(input):double()
+      output = self.network:forward(input)
       local max, argmax = output:max(1)
       action = argmax:squeeze()
-   end
-
-   if self.gpu then
-      output = output:typeAs(torch.Tensor())
    end
 
    self.output:resizeAs(output):copy(output)
@@ -231,7 +227,7 @@ function DeepQ:qUpdate(prev_s, prev_a, prev_r, next_s, next_a)
    local input
 
    if self.usestate then
-      input = next_s
+      input = self:transfer(next_s)
    else
       input = self:transfer(torch.zeros(self.nstates))
       input[next_s] = 1.0
@@ -241,7 +237,7 @@ function DeepQ:qUpdate(prev_s, prev_a, prev_r, next_s, next_a)
    local maxQ = prev_r + self.gamma * output:max()
 
    if self.usestate then
-      input = prev_s
+      input = self:transfer(prev_s)
    else
       input = self:transfer(torch.zeros(self.nstates))
       input[prev_s] = 1.0
@@ -268,6 +264,10 @@ function DeepQ:cuda()
       self.network = self.network:cuda()
       self.w = self.w:cuda()
       self.dw = self.dw:cuda()
+      self.ps = self.ps:cuda()
+      self.gs = self.gs:cuda()
+      self.output = self.output:cuda()
+      self.gradInput = self.gradInput:cuda()
    end
    return self
 end
