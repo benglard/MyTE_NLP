@@ -1,4 +1,4 @@
-return function(self, T, verbose)
+return function(self, T, verbose, ...)
    --[[
       REQUIRES:
          self -> an instance of nn.Module or nngraph.gModule
@@ -8,6 +8,18 @@ return function(self, T, verbose)
       EFFECTS:
          Clones self T times
    ]]
+
+   if T == nil then -- original clone
+      local f = torch.MemoryFile('rw'):binary()
+      f:writeObject(self)
+      f:seek(1)
+      local clone = f:readObject()
+      f:close()
+      if select('#', ...) > 0 then
+         clone:share(self, ...)
+      end
+      return clone
+   end
 
    verbose = verbose or false
 
