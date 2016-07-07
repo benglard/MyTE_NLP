@@ -225,7 +225,6 @@ function DeepQ:qUpdate(prev_s, prev_a, prev_r, next_s, next_a)
 
    -- Compute Q(s, a) = r + gamma * max_a' Q(s', a')
    local input
-
    if self.usestate then
       input = self:transfer(next_s)
    else
@@ -242,15 +241,14 @@ function DeepQ:qUpdate(prev_s, prev_a, prev_r, next_s, next_a)
       input = self:transfer(torch.zeros(self.nstates))
       input[prev_s] = 1.0
    end
-   local pred = self.network:forward(input)
 
+   local pred = self.network:forward(input)
    local loss = pred[prev_a] - maxQ
    local grad = self:transfer(torch.zeros(self.nactions))
    grad[prev_a] = loss
    grad:clamp(-self.gradclip, self.gradclip)
 
    local currentGradInput = self.network:backward(input, grad)
-
    if learned then
       self.gradInput:copy(currentGradInput)
       self:update(self.network, self.optim, self.updates)
@@ -261,11 +259,10 @@ end
 function DeepQ:cuda()
    if cutorch ~= nil then
       self.gpu = true
-      self.network = self.network:cuda()
-      self.w = self.w:cuda()
-      self.dw = self.dw:cuda()
-      self.ps = self.ps:cuda()
-      self.gs = self.gs:cuda()
+      self.network = self.network:cuda():clone()
+      self.w = self.w:cuda():clone()
+      self.dw = self.dw:cuda():clone()
+      self.ps, self.gs = self.network:getParameters()
       self.output = self.output:cuda()
       self.gradInput = self.gradInput:cuda()
    end
@@ -273,8 +270,11 @@ function DeepQ:cuda()
 end
 
 function DeepQ:transfer(v)
-   if self.gpu then return v:cuda()
-   else return v end
+   if self.gpu then
+      return v:cuda()
+   else
+      return v:double()
+   end
 end
 
 function DeepQ:sgd(net, lr, momentum)
@@ -289,7 +289,7 @@ function DeepQ:sgd(net, lr, momentum)
    ]]
 
    lr = lr or 0.01
-   mom = momentum or 0.9
+   local mom = momentum or 0.9
 
    local ps, gs = self.ps, self.gs
    gs:mul(-lr)
