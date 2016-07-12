@@ -101,17 +101,13 @@ function RecurrentDeepQ:act(state)
    if math.random() < self.epsilon then
       -- epsilon greedy policy
       action = torch.random(1, self.nactions)
-      output = torch.zeros(self.nactions)
+      output = self:transfer(torch.zeros(self.nactions))
       output[action] = 1.0
    else
       -- greedy wrt Q function
-      output = self.network:forward(input):double()
+      output = self.network:forward(input)
       local max, argmax = output:max(1)
       action = argmax:squeeze()
-   end
-
-   if self.gpu then
-      output = self:transfer(output)
    end
 
    self.output:resizeAs(output):copy(output)
@@ -160,7 +156,7 @@ function RecurrentDeepQ:qUpdate()
    local input
 
    if self.usestate then
-      input = next_s
+      input = self:transfer(next_s)
    else
       input = self:transfer(torch.zeros(self.nstates))
       input[next_s] = 1.0
@@ -170,7 +166,7 @@ function RecurrentDeepQ:qUpdate()
    local maxQ = prev_r + self.gamma * output:max()
 
    if self.usestate then
-      input = prev_s
+      input = self:transfer(prev_s)
    else
       input = self:transfer(torch.zeros(self.nstates))
       input[prev_s] = 1.0
