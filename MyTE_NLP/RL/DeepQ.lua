@@ -90,9 +90,10 @@ function DeepQ:__init(env, options)
    self.network   = self.options.network   or self:buildNetwork()
    self.optim     = self.options.optim     or 'sgd'
 
-   self.updates = { self.lr }
+   self.updates = { self.lr, learningRate = self.lr }
    if self.optim == 'sgd' then
       table.insert(self.updates, self.momentum)
+      self.updates.momentum = self.momentum
    else
       table.insert(self.updates, self.gradclip)
    end
@@ -251,7 +252,7 @@ function DeepQ:qUpdate(prev_s, prev_a, prev_r, next_s, next_a)
    local currentGradInput = self.network:backward(input, grad)
    if learned then
       self.gradInput:copy(currentGradInput)
-      self:update(self.network, self.optim, self.updates)
+      self:update(self.network, self.optim, self.updates, loss)
    end
    return loss
 end

@@ -8,12 +8,13 @@ cmd:option('--attend', false, 'use attention')
 cmd:option('--seq', 4, 'seq length')
 cmd:option('--rand', false, 'range vs randperm')
 cmd:option('--deque', false, 'use rnn deque')
+cmd:option('--optim', 'sgd', 'optim method')
 local opt = cmd:parse(arg or {})
 print(opt)
 
 local env = { nstates = opt.size, nactions = opt.size }
 local aopt = { rnntype = opt.layer, nlayers = opt.nl,
-   attend = opt.attend, seq = opt.seq, deque = opt.deque }
+   attend = opt.attend, seq = opt.seq, deque = opt.deque, optim = opt.optim }
 local sm = nn.SoftMax()
 local state, counter
 local function gen()
