@@ -1,5 +1,5 @@
 require '../MyTE_NLP'
-require 'image'
+--require 'image'
 local mnist = require 'mnist'
 
 local cmd = torch.CmdLine()

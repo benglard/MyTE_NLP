@@ -7,7 +7,10 @@ cmd:option('--debug', false, 'set nngraph debugging mode')
 cmd:option('--clone', false, 'clone over time steps')
 cmd:option('--kp', false, 'Keep params init from autobw')
 cmd:option('--n', 10000, 'n iterations')
+cmd:option('--optim', 'sgd', 'sgd | adam | ...')
 local opt = cmd:parse(arg or {})
+print(opt)
+
 local layer = nil
 if     opt.layer == 'rec'  then layer = rnn.Recurrent
 elseif opt.layer == 'lstm' then layer = rnn.LSTM
@@ -71,8 +74,10 @@ local function fopt(x)
 end
 
 local s = 0
+local config = {}
+local optimizer = optim[opt.optim]
 for i = 1, opt.n do
-   local _, fx = optim.sgd(fopt, params, {})
+   local _, fx = optimizer(fopt, params, config)
    print(i, fx[1])
    s = s + fx[1]
 end

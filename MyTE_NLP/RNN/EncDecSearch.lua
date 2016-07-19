@@ -22,6 +22,14 @@ function EncDecSearch:updateOutput(input)
       return enc:forward(input)
    elseif stop and (self.estop or ds == self.dseqSize) then
       self.estop = false
+      -- encoder backward
+      local es = self.step.encoder
+      for i = es, 1, -1 do
+         local encinput = self.inputs[i]
+         local enc = self.encoder.clones[i]
+         local currentGradOutput = torch.zeros(self.hiddenSize)
+         enc:backward(encinput, currentGradOutput, scale)
+      end      
       return nil
    elseif es < self.seqSize and (not self.estop) then
       self.inputs = self.inputs:typeAs(input)
@@ -117,6 +125,20 @@ function BiEncDecSearch:updateOutput(input)
       return rv
    elseif stop and (self.estop or ds == self.dseqSize) then
       self.estop = false
+      local es = self.step.encoder
+      -- Backward on backward encodings
+      for i = 1, es do
+         local encinput = self.inputs[i]
+         local enc = self.encoder.clones[i]
+         enc:backward(encinput, currentGradOutput, scale)
+      end
+
+      -- Backward on forward encodings
+      for i = es, 1, -1 do
+         local encinput = self.inputs[i]
+         local enc = self.encoder.clones[i]
+         enc:backward(encinput, currentGradOutput, scale)
+      end
       return nil
    elseif es < self.seqSize and (not self.estop) then
       self.inputs = self.inputs:typeAs(input)
@@ -151,7 +173,7 @@ function BiEncDecSearch:updateOutput(input)
    end
 end
 
-function BiEncDec:restart()
+function BiEncDecSearch:restart()
    --[[
       EFFECTS:
          Reloads the model to initial values

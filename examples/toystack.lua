@@ -15,6 +15,7 @@ cmd:option('--exp', 1, 'exp of a^expb^exp sequence')
 cmd:option('--discrete', false, 'discretize stacks')
 cmd:option('--noop', false, 'use noop')
 cmd:option('--endon', false, 'end on batch_size')
+cmd:option('--optim', 'sgd', 'sgd | adam | ...')
 local opt = cmd:parse(arg or {})
 print(opt)
 
@@ -110,8 +111,10 @@ local function fopt(x)
 end
 
 local s = 0
+local config = {}
+local optimizer = optim[opt.optim]
 for i = 1, opt.n do
-   local _, fx = optim.sgd(fopt, params, {})
+   local _, fx = optim.sgd(fopt, params, config)
    print(i, fx[1])
    s = s + fx[1]
 end

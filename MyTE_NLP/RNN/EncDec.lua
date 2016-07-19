@@ -59,6 +59,14 @@ function EncDec:updateOutput(input)
       return enc:forward(input)
    elseif stop and (self.estop or ds == self.dseqSize) then
       self.estop = false
+      -- encoder backward
+      local es = self.step.encoder
+      for i = es, 1, -1 do
+         local encinput = self.inputs[i]
+         local enc = self.encoder.clones[i]
+         local currentGradOutput = torch.zeros(self.hiddenSize)
+         enc:backward(encinput, currentGradOutput, scale)
+      end      
       return nil
    elseif es < self.seqSize and (not self.estop) then
       self.inputs = self.inputs:typeAs(input)
@@ -91,16 +99,6 @@ function EncDec:backward(input, gradOutput, scale)
    local dec = self.decoder.clones[ds]
    local currentGradOutput = dec:backward(input, gradOutput, scale)
    dec.gradInput = currentGradOutput
-
-   if ds == 1 then
-      local es = self.step.encoder
-      for i = es, 1, -1 do
-         local encinput = self.inputs[i]
-         local enc = self.encoder.clones[i]
-         enc:backward(encinput, currentGradOutput, scale)
-      end
-   end
-
    self.gradInput = currentGradOutput
    self.step.decoder = ds + 1
 end
