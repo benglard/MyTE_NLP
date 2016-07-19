@@ -100,6 +100,7 @@ function Module:update(net, method, config, err)
          return err, self.gs
       end
       optim[method](feval, self.ps, config)
+      self.gs:zero()
       return
    end
 
