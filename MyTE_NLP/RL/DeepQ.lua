@@ -82,7 +82,6 @@ function DeepQ:__init(env, options)
    self.momentum  = self.options.momentum  or 0.9   -- network momentum (only sgd)
    self.hidden    = self.options.hidden    or 100   -- # hidden units
    self.memory    = self.options.memory    or 5000  -- size of experience replay
-   self.interval  = self.options.interval  or 25    -- # time steps before experience added to memory
    self.batchsize = self.options.batchsize or 10    -- # time steps to sample and learn from
    self.gradclip  = self.options.gradclip  or 1     -- gradient clipping level
    self.usestate  = self.options.usestate  or false -- Use whole state tensor?
@@ -90,9 +89,10 @@ function DeepQ:__init(env, options)
    self.network   = self.options.network   or self:buildNetwork()
    self.optim     = self.options.optim     or 'sgd'
 
-   self.updates = { self.lr }
+   self.updates = { self.lr, learningRate = self.lr }
    if self.optim == 'sgd' then
       table.insert(self.updates, self.momentum)
+      self.updates.momentum = self.momentum
    else
       table.insert(self.updates, self.gradclip)
    end
@@ -148,17 +148,13 @@ function DeepQ:act(state)
    if math.random() < self.epsilon then
       -- epsilon greedy policy
       action = torch.random(1, self.nactions)
-      output = torch.zeros(self.nactions)
+      output = self:transfer(torch.zeros(self.nactions))
       output[action] = 1.0
    else
       -- greedy wrt Q function
-      output = self.network:forward(input):double()
+      output = self.network:forward(input)
       local max, argmax = output:max(1)
       action = argmax:squeeze()
-   end
-
-   if self.gpu then
-      output = output:typeAs(torch.Tensor())
    end
 
    self.output:resizeAs(output):copy(output)
@@ -181,22 +177,23 @@ function DeepQ:learn(reward)
 
    if self.prev_r ~= nil and self.lr > 0 then
       -- qUpdate, loss is a measure of surprise to the agent
-      self.loss = self:qUpdate('learn')
+      self.loss = self:qUpdate()
 
       -- Store experience in replay memory
-      if self.nsteps % self.interval == 0 then
-         local exp = {
-            self.prev_s, self.prev_a, self.prev_r,
-            self.next_s, self.next_a
-         }
-         self.memory:append(exp)
-      end
+      local exp = {
+         self.prev_s, self.prev_a, self.prev_r,
+         self.next_s, self.next_a
+      }
+      self.memory:append(exp)
       self.nsteps = self.nsteps + 1
       
       -- Sample some additional experience from replay memory and learn from it
-      for i = 1, self.batchsize do
-         local exp = self.memory:sample()
-         self:qUpdate(unpack(exp))
+      if self.nsteps % self.batchsize == 0 then
+         for i = 1, self.batchsize do
+            local exp = self.memory:sample()
+            self:qUpdate(unpack(exp))
+         end
+         self.memory:clear()
       end
    end
    self.prev_r = reward
@@ -218,7 +215,7 @@ function DeepQ:qUpdate(prev_s, prev_a, prev_r, next_s, next_a)
    ]]
 
    local learned = false
-   if prev_s == 'learn' or prev_s == nil then
+   if prev_s == nil then
       prev_s = self.prev_s
       learned = true
    end
@@ -229,9 +226,8 @@ function DeepQ:qUpdate(prev_s, prev_a, prev_r, next_s, next_a)
 
    -- Compute Q(s, a) = r + gamma * max_a' Q(s', a')
    local input
-
    if self.usestate then
-      input = next_s
+      input = self:transfer(next_s)
    else
       input = self:transfer(torch.zeros(self.nstates))
       input[next_s] = 1.0
@@ -241,23 +237,22 @@ function DeepQ:qUpdate(prev_s, prev_a, prev_r, next_s, next_a)
    local maxQ = prev_r + self.gamma * output:max()
 
    if self.usestate then
-      input = prev_s
+      input = self:transfer(prev_s)
    else
       input = self:transfer(torch.zeros(self.nstates))
       input[prev_s] = 1.0
    end
-   local pred = self.network:forward(input)
 
+   local pred = self.network:forward(input)
    local loss = pred[prev_a] - maxQ
    local grad = self:transfer(torch.zeros(self.nactions))
    grad[prev_a] = loss
    grad:clamp(-self.gradclip, self.gradclip)
 
    local currentGradInput = self.network:backward(input, grad)
-
    if learned then
       self.gradInput:copy(currentGradInput)
-      self:update(self.network, self.optim, self.updates)
+      self:update(self.network, self.optim, self.updates, loss)
    end
    return loss
 end
@@ -265,16 +260,22 @@ end
 function DeepQ:cuda()
    if cutorch ~= nil then
       self.gpu = true
-      self.network = self.network:cuda()
-      self.w = self.w:cuda()
-      self.dw = self.dw:cuda()
+      self.network = self.network:cuda():clone()
+      self.w = self.w:cuda():clone()
+      self.dw = self.dw:cuda():clone()
+      self.ps, self.gs = self.network:getParameters()
+      self.output = self.output:cuda()
+      self.gradInput = self.gradInput:cuda()
    end
    return self
 end
 
 function DeepQ:transfer(v)
-   if self.gpu then return v:cuda()
-   else return v end
+   if self.gpu then
+      return v:cuda()
+   else
+      return v:double()
+   end
 end
 
 function DeepQ:sgd(net, lr, momentum)
@@ -289,7 +290,7 @@ function DeepQ:sgd(net, lr, momentum)
    ]]
 
    lr = lr or 0.01
-   mom = momentum or 0.9
+   local mom = momentum or 0.9
 
    local ps, gs = self.ps, self.gs
    gs:mul(-lr)

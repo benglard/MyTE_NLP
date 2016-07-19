@@ -154,7 +154,7 @@ function RecurrentAttention:updateOutput(input)
    local prev_s
    local prev_rmod = self.rmod.clones[step - 1]
    if prev_rmod == nil then
-      prev_s = torch.zeros(self.batchSize, self.inputSize)
+      prev_s = torch.zeros(self.batchSize, self.inputSize):type(self._type)
    else
       prev_s = prev_rmod.modules[1].prev_h
    end

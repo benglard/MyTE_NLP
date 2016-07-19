@@ -82,22 +82,32 @@ function Module:updateGradInput(reward)
    return self:learn(reward)
 end
 
-function Module:update(net, method, params)
+function Module:update(net, method, config, err)
    --[[
       REQUIRES:
          net -> an instance of nn
          method -> an optimization method,
             either 'sgd' or 'rmsprop'
-         params -> params of method
+         config -> params of method
+         err -> criterion forward
       EFFECTS:
          Updates the network using sgd
          or rmsprop
    ]]
 
+   if err then
+      local feval = function(x)
+         return err, self.gs
+      end
+      optim[method](feval, self.ps, config)
+      self.gs:zero()
+      return
+   end
+
    if method == 'sgd' then
-      self:sgd(net, unpack(params))
+      self:sgd(net, unpack(config))
    elseif method == 'rmsprop' then
-      self:rmsprop(net, unpack(params))
+      self:rmsprop(net, unpack(config))
    else
       error('unsupported optimization method')
    end
