@@ -82,7 +82,6 @@ function DeepQ:__init(env, options)
    self.momentum  = self.options.momentum  or 0.9   -- network momentum (only sgd)
    self.hidden    = self.options.hidden    or 100   -- # hidden units
    self.memory    = self.options.memory    or 5000  -- size of experience replay
-   self.interval  = self.options.interval  or 25    -- # time steps before experience added to memory
    self.batchsize = self.options.batchsize or 10    -- # time steps to sample and learn from
    self.gradclip  = self.options.gradclip  or 1     -- gradient clipping level
    self.usestate  = self.options.usestate  or false -- Use whole state tensor?
@@ -178,22 +177,23 @@ function DeepQ:learn(reward)
 
    if self.prev_r ~= nil and self.lr > 0 then
       -- qUpdate, loss is a measure of surprise to the agent
-      self.loss = self:qUpdate('learn')
+      self.loss = self:qUpdate()
 
       -- Store experience in replay memory
-      if self.nsteps % self.interval == 0 then
-         local exp = {
-            self.prev_s, self.prev_a, self.prev_r,
-            self.next_s, self.next_a
-         }
-         self.memory:append(exp)
-      end
+      local exp = {
+         self.prev_s, self.prev_a, self.prev_r,
+         self.next_s, self.next_a
+      }
+      self.memory:append(exp)
       self.nsteps = self.nsteps + 1
       
       -- Sample some additional experience from replay memory and learn from it
-      for i = 1, self.batchsize do
-         local exp = self.memory:sample()
-         self:qUpdate(unpack(exp))
+      if self.nsteps % self.batchsize == 0 then
+         for i = 1, self.batchsize do
+            local exp = self.memory:sample()
+            self:qUpdate(unpack(exp))
+         end
+         self.memory:clear()
       end
    end
    self.prev_r = reward
@@ -215,7 +215,7 @@ function DeepQ:qUpdate(prev_s, prev_a, prev_r, next_s, next_a)
    ]]
 
    local learned = false
-   if prev_s == 'learn' or prev_s == nil then
+   if prev_s == nil then
       prev_s = self.prev_s
       learned = true
    end
