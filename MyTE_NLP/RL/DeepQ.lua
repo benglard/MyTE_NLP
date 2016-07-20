@@ -85,6 +85,7 @@ function DeepQ:__init(env, options)
    self.batchsize = self.options.batchsize or 10    -- # time steps to sample and learn from
    self.gradclip  = self.options.gradclip  or 1     -- gradient clipping level
    self.usestate  = self.options.usestate  or false -- Use whole state tensor?
+   self.nlayers   = self.options.nlayers   or 1     -- # layers
    self.rectifier = self.options.rectifier or nn.Tanh
    self.network   = self.options.network   or self:buildNetwork()
    self.optim     = self.options.optim     or 'sgd'
@@ -112,8 +113,10 @@ function DeepQ:buildNetwork()
    local model = nn.Sequential()
    model:add(nn.Linear(self.nstates, self.hidden))
    model:add(self.rectifier())
-   model:add(nn.Linear(self.hidden, self.hidden))
-   model:add(self.rectifier())
+   for i = 1, self.nlayers do
+      model:add(nn.Linear(self.hidden, self.hidden))
+      model:add(self.rectifier())
+   end
    model:add(nn.Linear(self.hidden, self.nactions))
    return model
 end
