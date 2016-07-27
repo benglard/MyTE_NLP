@@ -47,6 +47,18 @@ Module.backward = function(self, input, gradOutput, scale)
    return clone.gradInput
 end
 
+Module.cloneOnce = function(self, ...)
+   local f = torch.MemoryFile("rw"):binary()
+   f:writeObject(self)
+   f:seek(1)
+   local clone = f:readObject()
+   f:close()
+   if select('#',...) > 0 then
+      clone:share(self,...)
+   end
+   return clone
+end
+
 -------- Criterion
 
 Criterion.clones = {}

@@ -346,3 +346,48 @@ function DeepQ:rmsprop(net, lr, clip)
    -- zero gradients
    gs:zero()
 end
+
+function DeepQ:save(path, forgpu)
+   --[[
+      REQUIRES:
+         path -> path to save model to
+         forgpu -> save gpu or cpu model, defaults to self.gpu
+      EFFECTS:
+         Saves a DeepQ model to disk
+   ]]
+
+   if forgpu == nil then
+      forgpu = self.gpu
+   end
+
+   if forgpu and self.gpu then
+      path = path .. '.gpu'
+      torch.save(path, {
+         network = self.network,
+         w = self.w,
+         dw = self.dw
+      })
+   else
+      path = path .. '.cpu'
+      torch.save(path, {
+         network = self.network:double(),
+         w = self.w:double(),
+         dw = self.dw:double()
+      })
+   end
+end
+
+function DeepQ:load(path)
+   --[[
+      REQUIRES:
+         path -> path to load from
+      EFFECTS:
+         Loads a saved DeepQ model
+   ]]
+
+   local data = torch.load(path)
+   self.network = data.network
+   self.ps, self.gs = self.network:getParameters()
+   self.w = data.w
+   self.dw = data.dw
+end

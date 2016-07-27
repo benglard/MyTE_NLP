@@ -194,6 +194,32 @@ function Module:push(state, action)
    self.next_a = action
 end
 
+function Module:cuda()
+   self.gpu = (cutorch ~= nil)
+   return self
+end
+
+function Module:transfer(x)
+   if self.gpu then
+      return x:cuda()
+   else
+      return x:double()
+   end
+end
+
+function Module:training()
+   self.network:training()
+   if self._eps ~= nil then
+      self.epsilon = self._eps
+   end
+end
+
+function Module:evaluate()
+   self.network:evaluate()
+   self._eps = self.epsilon
+   self.epsilon = 0
+end
+
 function Module:__tostring__()
    return torch.type(self) .. ': ' .. tostring(self.network)
 end
